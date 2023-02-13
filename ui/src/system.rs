@@ -1,15 +1,16 @@
-use std::{time::Instant, rc::Rc};
+use std::{rc::Rc, time::Instant};
 
 use anyhow::Result;
 use glium::{
     self,
+    backend::Facade,
     glutin::{
         self,
         event::{Event, WindowEvent},
         event_loop::{ControlFlow, EventLoop},
         window::WindowBuilder,
     },
-    Display, Surface, backend::Facade,
+    Display, Surface,
 };
 use imgui::{FontConfig, FontSource, Textures};
 use imgui_glium_renderer::{Renderer, Texture};
@@ -68,7 +69,12 @@ impl System {
 
     pub fn main_loop<R>(mut self, mut run_ui: R)
     where
-        R: FnMut(&mut imgui::Ui, &mut Textures<Texture>, &Rc<glium::backend::Context>) -> Option<ControlFlow> + 'static,
+        R: FnMut(
+                &mut imgui::Ui,
+                &mut Textures<Texture>,
+                &Rc<glium::backend::Context>,
+            ) -> Option<ControlFlow>
+            + 'static,
     {
         let mut last_frame = Instant::now();
 
