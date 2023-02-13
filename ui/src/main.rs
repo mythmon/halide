@@ -29,6 +29,7 @@ struct App {
     timer: Timer,
     renderer: Renderer,
     sphere_color: [f32; 3],
+    light_direction: [f32; 3],
 }
 
 impl Default for App {
@@ -40,6 +41,7 @@ impl Default for App {
             timer: Timer::new(),
             renderer: Renderer::new(400, 400),
             sphere_color: [1., 0., 1.],
+            light_direction: [-1., -1., -1.],
         }
     }
 }
@@ -90,6 +92,11 @@ impl App {
             .size([300., 300.], Condition::FirstUseEver)
             .build(|| {
                 ui.color_picker3("Sphere color", &mut self.sphere_color);
+                ui.separator();
+                ui.text("Light direction");
+                ui.slider("X", -1., 1., &mut self.light_direction[0]);
+                ui.slider("Y", -1., 1., &mut self.light_direction[1]);
+                ui.slider("Z", -1., 1., &mut self.light_direction[2]);
             });
     }
 
@@ -99,7 +106,7 @@ impl App {
         let height = self.viewport_size[1] as u32;
 
         self.renderer.resize(width, height);
-        let data = self.renderer.render(&self.sphere_color);
+        let data = self.renderer.render(&self.sphere_color, &self.light_direction);
 
         self.timer.stage_end("generate data");
 

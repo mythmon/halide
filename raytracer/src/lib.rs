@@ -31,11 +31,14 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self, sphere_color: &[f32; 3]) -> Cow<[u32]> {
+    pub fn render(&mut self, sphere_color: &[f32; 3], light_direction: &[f32; 3]) -> Cow<[u32]> {
         self.image_data.resize(self.image_len(), 0);
         let wp = self.width as f32;
         let hp = self.height as f32;
         let aspect = wp / hp;
+
+        let sphere_color = Vec3::from_slice(sphere_color).extend(1.0);
+        let light_direction = Vec3::from_slice(light_direction).normalize();
 
         for y in 0..self.height {
             let yp = y as f32;
@@ -44,18 +47,17 @@ impl Renderer {
                 // screen uv coordinate with y in [-1,1] and x in [-aspect,aspect]
                 let coord = Vec2::new(((xp / wp * 2.) - 1.) * aspect, (yp / hp * 2.) - 1.);
                 let i = (x + y * self.width) as usize;
-                let color = self.per_pixel(coord, sphere_color).clamp(Vec4::ZERO, Vec4::ONE);
+                let color = self.per_pixel(coord, sphere_color, light_direction).clamp(Vec4::ZERO, Vec4::ONE);
                 self.image_data[i] = color_rgba(&color);
             }
         }
         Cow::Borrowed(self.image_data.as_slice())
     }
 
-    fn per_pixel(&self, coord: Vec2, sphere_color: &[f32; 3]) -> Vec4 {
+    fn per_pixel(&self, coord: Vec2, sphere_color: Vec4, light_direction: Vec3) -> Vec4 {
         let ray_direction = coord.extend(-1.);
         let ray_origin = Vec3::new(0.0, 0.0, 1.0);
         let radius = 0.5_f32;
-        let light_direction = Vec3::NEG_ONE.normalize();
 
         // solve the equation of the ray set equal to the equation of a sphere centered on the origin.
         // a, b, and c are the quadratic equation co-effiecients
