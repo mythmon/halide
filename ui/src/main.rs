@@ -1,10 +1,9 @@
-use std::{borrow::Cow, rc::Rc};
-
+use std::rc::Rc;
 use anyhow::Result;
 use glium::{backend::Facade, texture::RawImage2d, uniforms::SamplerBehavior};
+use halide_raytracer::Renderer;
 use imgui::{Condition, TextureId, Textures, Ui};
 use imgui_glium_renderer::Texture;
-use rand::{distributions::Uniform, Rng};
 use system::System;
 use timer::Timer;
 
@@ -28,6 +27,7 @@ struct App {
     viewport_size: [f32; 2],
     image_size: [f32; 2],
     timer: Timer,
+    renderer: Renderer,
 }
 
 impl Default for App {
@@ -37,6 +37,7 @@ impl Default for App {
             viewport_size: [400.0, 400.0],
             image_size: [0.0, 0.0],
             timer: Timer::new(),
+            renderer: Renderer::new(400, 400)
         }
     }
 }
@@ -54,11 +55,15 @@ impl App {
             let _padding_style = ui.push_style_var(imgui::StyleVar::WindowPadding([0.0, 0.0]));
             ui.window("Viewport")
                 .size(self.viewport_size, Condition::FirstUseEver)
-                .horizontal_scrollbar(true)
+                .scroll_bar(false)
                 .build(|| {
                     self.viewport_size = ui.content_region_avail();
                     if let Some(viewport_id) = self.viewport_id {
-                        imgui::Image::new(viewport_id, self.image_size).build(ui);
+                        imgui::Image::new(viewport_id, self.image_size)
+                            // flip Y-coordinate
+                            .uv0([0., 1.])
+                            .uv1([1., 0.])
+                        .build(ui);
                     }
                 });
         }
@@ -86,22 +91,18 @@ impl App {
         let width = self.viewport_size[0] as u32;
         let height = self.viewport_size[1] as u32;
 
-        let rng = rand::thread_rng();
-        // in ABGR order
-        let data: Vec<u32> = rng
-            .sample_iter(Uniform::new(0, 0xFF_FF_FF_FF))
-            .map(|p| p | 0xFF_00_00_00)
-            .take(width as usize * height as usize)
-            .collect();
+        self.renderer.resize(width, height);
+        let data = self.renderer.render();
+
         self.timer.stage_end("generate data");
 
         let raw = RawImage2d {
-            data: Cow::Owned(data),
+            data,
             width,
             height,
             format: glium::texture::ClientFormat::U8U8U8U8,
         };
-        let gl_texture = glium::Texture2d::new(gl_ctx, raw)?;
+        let gl_texture = glium::Texture2d::with_mipmaps(gl_ctx, raw, glium::texture::MipmapsOption::NoMipmap)?;
         let texture = Texture {
             texture: Rc::new(gl_texture),
             sampler: SamplerBehavior {

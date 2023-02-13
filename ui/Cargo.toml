@@ -10,4 +10,4 @@ glium = "0.32.1"
 imgui = { version = "0.10.0" }
 imgui-glium-renderer = "0.10.0"
 imgui-winit-support = "0.10.0"
-rand = "0.8.5"
+pix = "0.13.2"
