@@ -7,6 +7,9 @@ pub struct Ray {
 
 impl Default for Ray {
     fn default() -> Self {
-        Self { origin: Default::default(), direction: Vec3::Z }
+        Self {
+            origin: Default::default(),
+            direction: Vec3::Z,
+        }
     }
 }

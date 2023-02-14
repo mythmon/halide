@@ -8,7 +8,11 @@ pub struct Scene {
 
 impl Default for Scene {
     fn default() -> Self {
-        Self { sphere_color: Vec3::new(0.27, 0.51, 0.71), sphere_radius: 0.5, light_direction: Vec3::NEG_ONE.normalize() }
+        Self {
+            sphere_color: Vec3::new(0.27, 0.51, 0.71),
+            sphere_radius: 0.5,
+            light_direction: Vec3::NEG_ONE.normalize(),
+        }
     }
 }
 
@@ -18,7 +22,9 @@ impl Scene {
     }
 
     pub fn set_light_direction(&mut self, light_direction: Vec3) {
-        self.light_direction = light_direction.normalize();
+        if let Some(normalized) = light_direction.try_normalize() {
+            self.light_direction = normalized;
+        }
     }
 
     pub fn sphere_color(&self) -> Vec3 {

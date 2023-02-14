@@ -1,4 +1,4 @@
-use glam::{Vec4, Vec3};
+use glam::{Vec3, Vec4};
 
 pub(crate) fn color_rgba(c: &Vec4) -> u32 {
     let r = (c.x * 255.) as u32;

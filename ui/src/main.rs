@@ -31,8 +31,10 @@ struct App {
     renderer: Renderer,
     scene: Scene,
     camera: Camera,
-    sphere_color_raw: [f32; 3],
-    light_direction_raw: [f32; 3],
+    sphere_color_ui: [f32; 3],
+    light_direction_ui: [f32; 3],
+    camera_position_ui: [f32; 3],
+    camera_direction_ui: [f32; 3],
 }
 
 impl Default for App {
@@ -45,16 +47,24 @@ impl Default for App {
             renderer: Renderer::new(400, 400),
             scene: Scene::default(),
             camera: Camera::default(),
-            sphere_color_raw: [0.0; 3],
-            light_direction_raw: [0.0; 3],
+            sphere_color_ui: [0.0; 3],
+            light_direction_ui: [0.0; 3],
+            camera_position_ui: [0.0; 3],
+            camera_direction_ui: [0.0; 3],
         };
 
         rv.scene
             .sphere_color()
-            .write_to_slice(&mut rv.sphere_color_raw);
+            .write_to_slice(&mut rv.sphere_color_ui);
         rv.scene
             .light_direction()
-            .write_to_slice(&mut rv.light_direction_raw);
+            .write_to_slice(&mut rv.light_direction_ui);
+        rv.camera
+            .position()
+            .write_to_slice(&mut rv.camera_position_ui);
+        rv.camera
+            .look_direction()
+            .write_to_slice(&mut rv.camera_direction_ui);
 
         rv
     }
@@ -105,18 +115,36 @@ impl App {
         ui.window("Settings")
             .size([300., 300.], Condition::FirstUseEver)
             .build(|| {
-                if ui.color_edit3("Sphere color", &mut self.sphere_color_raw) {
+                if ui.color_edit3("Sphere color", &mut self.sphere_color_ui) {
                     self.scene
-                        .set_sphere_color(Vec3::from(self.sphere_color_raw));
+                        .set_sphere_color(Vec3::from(self.sphere_color_ui));
                 };
 
                 if imgui::Drag::new("Light direction")
                     .range(-1., 1.)
                     .speed(0.01)
-                    .build_array(ui, &mut self.light_direction_raw)
+                    .build_array(ui, &mut self.light_direction_ui)
                 {
                     self.scene
-                        .set_light_direction(Vec3::from(self.light_direction_raw));
+                        .set_light_direction(Vec3::from(self.light_direction_ui));
+                }
+
+                if imgui::Drag::new("Camera position")
+                    .range(-10., 10.)
+                    .speed(0.1)
+                    .build_array(ui, &mut self.camera_position_ui)
+                {
+                    self.camera
+                        .set_position(Vec3::from(self.camera_position_ui))
+                }
+
+                if imgui::Drag::new("Camera direction")
+                    .range(-1., 1.)
+                    .speed(0.01)
+                    .build_array(ui, &mut self.camera_direction_ui)
+                {
+                    self.camera
+                        .set_look_direction(Vec3::from(self.camera_direction_ui));
                 }
             });
     }
@@ -127,6 +155,7 @@ impl App {
         let height = self.viewport_size[1] as u32;
 
         self.renderer.resize(width, height);
+        self.camera.set_size(width, height);
         let data = self.renderer.render(&self.scene, &self.camera);
 
         self.timer.stage_end("generate data");

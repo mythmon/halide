@@ -3,3 +3,6 @@ members = [
     "raytracer",
     "ui",
 ]
+
+[profile.release]
+debug = true
