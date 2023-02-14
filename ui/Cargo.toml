@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.69"
+glam = "0.22.0"
 glium = "0.32.1"
 "halide-raytracer" = {path = "../raytracer"}
 imgui = { version = "0.10.0" }

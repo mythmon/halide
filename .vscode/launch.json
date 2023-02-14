@@ -1,0 +1,58 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "sourceLanguages": ["rust"],
+      "name": "Debug executable 'halide-ui'",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=halide-ui",
+          "--package=halide-ui",
+          "--release"
+        ],
+        "filter": {
+          "name": "halide-ui",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "sourceLanguages": ["rust"],
+      "name": "Debug unit tests in library 'halide-raytracer'",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=halide-raytracer"],
+        "filter": {
+          "name": "halide-raytracer",
+          "kind": "lib"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "sourceLanguages": ["rust"],
+      "name": "Debug unit tests in executable 'halide-ui'",
+      "cargo": {
+        "args": ["test", "--no-run", "--bin=halide-ui", "--package=halide-ui"],
+        "filter": {
+          "name": "halide-ui",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 use anyhow::Result;
+use glam::Vec3;
 use glium::{backend::Facade, texture::RawImage2d, uniforms::SamplerBehavior};
-use halide_raytracer::Renderer;
+use halide_raytracer::{Camera, Renderer, Scene};
 use imgui::{Condition, TextureId, Textures, Ui};
 use imgui_glium_renderer::Texture;
 use std::rc::Rc;
@@ -28,21 +29,34 @@ struct App {
     image_size: [f32; 2],
     timer: Timer,
     renderer: Renderer,
-    sphere_color: [f32; 3],
-    light_direction: [f32; 3],
+    scene: Scene,
+    camera: Camera,
+    sphere_color_raw: [f32; 3],
+    light_direction_raw: [f32; 3],
 }
 
 impl Default for App {
     fn default() -> Self {
-        Self {
+        let mut rv = Self {
             viewport_id: None,
             viewport_size: [400.0, 400.0],
             image_size: [0.0, 0.0],
             timer: Timer::new(),
             renderer: Renderer::new(400, 400),
-            sphere_color: [1., 0., 1.],
-            light_direction: [-1., -1., -1.],
-        }
+            scene: Scene::default(),
+            camera: Camera::default(),
+            sphere_color_raw: [0.0; 3],
+            light_direction_raw: [0.0; 3],
+        };
+
+        rv.scene
+            .sphere_color()
+            .write_to_slice(&mut rv.sphere_color_raw);
+        rv.scene
+            .light_direction()
+            .write_to_slice(&mut rv.light_direction_raw);
+
+        rv
     }
 }
 
@@ -91,12 +105,19 @@ impl App {
         ui.window("Settings")
             .size([300., 300.], Condition::FirstUseEver)
             .build(|| {
-                ui.color_picker3("Sphere color", &mut self.sphere_color);
-                ui.separator();
-                ui.text("Light direction");
-                ui.slider("X", -1., 1., &mut self.light_direction[0]);
-                ui.slider("Y", -1., 1., &mut self.light_direction[1]);
-                ui.slider("Z", -1., 1., &mut self.light_direction[2]);
+                if ui.color_edit3("Sphere color", &mut self.sphere_color_raw) {
+                    self.scene
+                        .set_sphere_color(Vec3::from(self.sphere_color_raw));
+                };
+
+                if imgui::Drag::new("Light direction")
+                    .range(-1., 1.)
+                    .speed(0.01)
+                    .build_array(ui, &mut self.light_direction_raw)
+                {
+                    self.scene
+                        .set_light_direction(Vec3::from(self.light_direction_raw));
+                }
             });
     }
 
@@ -106,7 +127,7 @@ impl App {
         let height = self.viewport_size[1] as u32;
 
         self.renderer.resize(width, height);
-        let data = self.renderer.render(&self.sphere_color, &self.light_direction);
+        let data = self.renderer.render(&self.scene, &self.camera);
 
         self.timer.stage_end("generate data");
 

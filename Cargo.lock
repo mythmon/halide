@@ -530,6 +530,7 @@ dependencies = [
 name = "halide-raytracer"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "glam",
  "pix",
  "rand",
@@ -540,6 +541,7 @@ name = "halide-ui"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "glam",
  "glium",
  "halide-raytracer",
  "imgui",

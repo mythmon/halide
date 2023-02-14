@@ -4,6 +4,7 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.69"
 glam = "0.22.0"
 pix = "0.13.2"
 rand = "0.8.5"
