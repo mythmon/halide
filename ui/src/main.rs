@@ -2,7 +2,7 @@ use anyhow::Result;
 use glam::Vec3;
 use glium::{backend::Facade, texture::RawImage2d, uniforms::SamplerBehavior};
 use halide_raytracer::{Camera, Renderer, Scene};
-use imgui::{Condition, TextureId, Textures, Ui};
+use imgui::{Condition, Key, MouseButton, TextureId, Textures};
 use imgui_glium_renderer::Texture;
 use std::rc::Rc;
 use system::System;
@@ -73,10 +73,49 @@ impl Default for App {
 impl App {
     fn on_ui_render<F: Facade>(
         &mut self,
-        ui: &mut Ui,
+        ui: &mut imgui::Ui,
         textures: &mut Textures<Texture>,
         gl_ctx: &F,
     ) {
+        let dt = ui.io().delta_time;
+        let mut camera_offset = Vec3::ZERO;
+        let mut camera_rotate = [0.0, 0.0];
+
+        if ui.is_mouse_down(MouseButton::Right) {
+            if ui.is_key_down(Key::D) {
+                camera_offset += Vec3::X;
+            }
+            if ui.is_key_down(Key::A) {
+                camera_offset += Vec3::NEG_X;
+            }
+            if ui.is_key_down(Key::E) {
+                camera_offset += Vec3::Y;
+            }
+            if ui.is_key_down(Key::Q) {
+                camera_offset += Vec3::NEG_Y;
+            }
+            if ui.is_key_down(Key::W) {
+                camera_offset += Vec3::Z;
+            }
+            if ui.is_key_down(Key::S) {
+                camera_offset += Vec3::NEG_Z;
+            }
+
+            let drag = ui.mouse_drag_delta_with_button(MouseButton::Right);
+            ui.reset_mouse_drag_delta(MouseButton::Right);
+            if drag[0].abs() > 0. || drag[1].abs() > 0. {
+                camera_rotate = [-drag[1], -drag[0]];
+            }
+
+            if camera_offset != Vec3::ZERO {
+                camera_offset = camera_offset.normalize();
+                self.camera.relative_move(camera_offset, dt);
+            }
+            if camera_rotate != [0.0, 0.0] {
+                self.camera.relative_turn(camera_rotate, dt);
+            }
+        }
+ 
         {
             // scope for style tokens
             let _padding_style = ui.push_style_var(imgui::StyleVar::WindowPadding([0.0, 0.0]));
@@ -110,6 +149,7 @@ impl App {
                         duration.as_secs_f32() * 1000.0
                     ));
                 }
+                ui.text(format!("Camera motion\n\ttranslate: {}", camera_offset));
             });
 
         ui.window("Settings")

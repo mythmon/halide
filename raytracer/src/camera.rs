@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec2, Vec3, Vec4Swizzles};
+use glam::{Mat4, Quat, Vec2, Vec3, Vec4Swizzles};
 use std::{
     cell::{Ref, RefCell},
     ops::Deref,
@@ -7,6 +7,8 @@ use std::{
 pub struct Camera {
     position: Vec3,
     look_direction: Vec3,
+    right_direction: Vec3,
+    up_direction: Vec3,
     vertical_fov: f32,
     width: u32,
     height: u32,
@@ -20,6 +22,8 @@ impl Default for Camera {
         Self {
             position: Vec3::Z * 3.,
             look_direction: Vec3::NEG_Z,
+            right_direction: Vec3::X,
+            up_direction: Vec3::Y,
             vertical_fov: 20.,
             width: 640,
             height: 480,
@@ -39,6 +43,29 @@ impl Camera {
         self.position = position;
     }
 
+    /// Move the cameras origin. `offset` is mapped to the coordinate system of
+    /// the view, with X being to the right, Y being up, and Z being backwards.
+    pub fn relative_move(&mut self, offset: Vec3, ts: f32) {
+        const MOVE_SPEED: f32 = 2.;
+        let rotated = offset.x * self.right_direction
+            + offset.y * self.up_direction
+            + offset.z * self.look_direction;
+        self.position += MOVE_SPEED * rotated * ts;
+        self.clear_ray_cache();
+    }
+
+    pub fn relative_turn(&mut self, [pitch, yaw]: [f32; 2], ts: f32) {
+        const TURN_SPEED: f32 = 0.2;
+        let scale = TURN_SPEED * ts;
+        let q = Quat::from_axis_angle(self.right_direction, pitch * scale)
+            * Quat::from_axis_angle(self.up_direction, yaw * scale).normalize();
+
+        self.look_direction = q * self.look_direction;
+        self.right_direction = q * self.right_direction;
+        self.up_direction = q * self.up_direction;
+        self.clear_ray_cache();
+    }
+
     pub fn look_direction(&self) -> Vec3 {
         self.look_direction
     }
@@ -47,7 +74,7 @@ impl Camera {
         if let Some(normalized) = look_direction.try_normalize() {
             if normalized != self.look_direction {
                 self.look_direction = normalized;
-                self.cached_directions.replace(None);
+                self.clear_ray_cache();
             }
         }
     }
@@ -59,7 +86,7 @@ impl Camera {
     pub fn set_vertical_fov(&mut self, vertical_fov: f32) {
         if self.vertical_fov != vertical_fov {
             self.vertical_fov = vertical_fov;
-            self.cached_directions.replace(None);
+            self.clear_ray_cache();
         }
     }
 
@@ -69,9 +96,9 @@ impl Camera {
 
     pub fn set_size(&mut self, width: u32, height: u32) {
         if self.width != width || self.height != height {
-            self.cached_directions.replace(None);
             self.width = width;
             self.height = height;
+            self.clear_ray_cache()
         }
     }
 
@@ -86,6 +113,10 @@ impl Camera {
         Ref::map(self.cached_directions.borrow(), |b| {
             b.as_ref().unwrap().as_slice()
         })
+    }
+
+    fn clear_ray_cache(&self) {
+        self.cached_directions.replace(None);
     }
 
     fn compute_ray_directions(&self) {
