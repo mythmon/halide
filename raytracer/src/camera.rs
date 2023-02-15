@@ -1,7 +1,7 @@
 use glam::{Mat4, Quat, Vec2, Vec3, Vec4Swizzles};
 use std::{
     cell::{Ref, RefCell},
-    ops::Deref,
+    ops::{Deref, Range},
 };
 
 pub struct Camera {
@@ -12,8 +12,7 @@ pub struct Camera {
     vertical_fov: f32,
     width: u32,
     height: u32,
-    near_clip: f32,
-    far_clip: f32,
+    look_clip: Range<f32>,
     cached_directions: RefCell<Option<Vec<Vec3>>>,
 }
 
@@ -27,8 +26,7 @@ impl Default for Camera {
             vertical_fov: 20.,
             width: 640,
             height: 480,
-            near_clip: 0.01,
-            far_clip: 100.,
+            look_clip: 0.01..100.0,
             cached_directions: RefCell::new(None),
         }
     }
@@ -45,16 +43,17 @@ impl Camera {
 
     /// Move the cameras origin. `offset` is mapped to the coordinate system of
     /// the view, with X being to the right, Y being up, and Z being backwards.
-    pub fn relative_move(&mut self, offset: Vec3, ts: f32) {
+    pub fn relative_move(&mut self, offset: Vec3, ts: f32) -> &Vec3 {
         const MOVE_SPEED: f32 = 2.;
         let rotated = offset.x * self.right_direction
             + offset.y * self.up_direction
             + offset.z * self.look_direction;
         self.position += MOVE_SPEED * rotated * ts;
         self.clear_ray_cache();
+        &self.position
     }
 
-    pub fn relative_turn(&mut self, [pitch, yaw]: [f32; 2], ts: f32) {
+    pub fn relative_turn(&mut self, [pitch, yaw]: [f32; 2], ts: f32) -> &Vec3 {
         const TURN_SPEED: f32 = 0.2;
         let scale = TURN_SPEED * ts;
         let q = Quat::from_axis_angle(self.right_direction, pitch * scale)
@@ -64,6 +63,7 @@ impl Camera {
         self.right_direction = q * self.right_direction;
         self.up_direction = q * self.up_direction;
         self.clear_ray_cache();
+        &self.look_direction
     }
 
     pub fn look_direction(&self) -> Vec3 {
@@ -102,6 +102,14 @@ impl Camera {
         }
     }
 
+    pub fn look_clip(&self) -> &Range<f32> {
+        &self.look_clip
+    }
+
+    pub fn set_look_clip(&mut self, look_clip: Range<f32>) {
+        self.look_clip = look_clip;
+    }
+
     pub fn aspect_ratio(&self) -> f32 {
         self.width as f32 / self.height as f32
     }
@@ -128,8 +136,8 @@ impl Camera {
         let projection = Mat4::perspective_rh(
             self.vertical_fov,
             self.aspect_ratio(),
-            self.near_clip,
-            self.far_clip,
+            self.look_clip.start,
+            self.look_clip.end,
         );
         let projection_inverse = projection.inverse();
 

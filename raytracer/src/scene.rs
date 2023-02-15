@@ -1,16 +1,14 @@
 use glam::Vec3;
 
 pub struct Scene {
-    sphere_color: Vec3,
-    sphere_radius: f32,
+    spheres: Vec<Sphere>,
     light_direction: Vec3,
 }
 
 impl Default for Scene {
     fn default() -> Self {
         Self {
-            sphere_color: Vec3::new(0.27, 0.51, 0.71),
-            sphere_radius: 0.5,
+            spheres: Vec::new(),
             light_direction: Vec3::NEG_ONE.normalize(),
         }
     }
@@ -27,19 +25,31 @@ impl Scene {
         }
     }
 
-    pub fn sphere_color(&self) -> Vec3 {
-        self.sphere_color
+    pub fn spheres(&self) -> &[Sphere] {
+        self.spheres.as_slice()
     }
 
-    pub fn set_sphere_color(&mut self, sphere_color: Vec3) {
-        self.sphere_color = sphere_color;
+    pub fn spheres_mut(&mut self) -> &mut [Sphere] {
+        &mut self.spheres
     }
 
-    pub fn sphere_radius(&self) -> f32 {
-        self.sphere_radius
+    pub fn add_sphere(&mut self, sphere: Sphere) {
+        self.spheres.push(sphere);
     }
+}
 
-    pub fn set_sphere_radius(&mut self, sphere_radius: f32) {
-        self.sphere_radius = sphere_radius;
+pub struct Sphere {
+    pub center: Vec3,
+    pub radius: f32,
+    pub albedo: Vec3,
+}
+
+impl Default for Sphere {
+    fn default() -> Self {
+        Self {
+            center: Vec3::ZERO,
+            radius: 1.0,
+            albedo: Vec3::ONE,
+        }
     }
 }

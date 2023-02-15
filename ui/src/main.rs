@@ -1,7 +1,7 @@
 use anyhow::Result;
 use glam::Vec3;
 use glium::{backend::Facade, texture::RawImage2d, uniforms::SamplerBehavior};
-use halide_raytracer::{Camera, Renderer, Scene};
+use halide_raytracer::{Camera, Renderer, Scene, Sphere};
 use imgui::{Condition, Key, MouseButton, TextureId, Textures};
 use imgui_glium_renderer::Texture;
 use std::rc::Rc;
@@ -31,42 +31,39 @@ struct App {
     renderer: Renderer,
     scene: Scene,
     camera: Camera,
-    sphere_color_ui: [f32; 3],
-    light_direction_ui: [f32; 3],
-    camera_position_ui: [f32; 3],
-    camera_direction_ui: [f32; 3],
 }
 
 impl Default for App {
     fn default() -> Self {
-        let mut rv = Self {
+        let mut scene = Scene::default();
+        scene.add_sphere(Sphere {
+            center: Vec3::new(-2., 0., 0.),
+            radius: 0.5,
+            albedo: Vec3::new(1.0, 0.0, 1.0),
+        });
+        scene.add_sphere(Sphere {
+            center: Vec3::new(0., 0., 0.),
+            radius: 0.5,
+            albedo: Vec3::new(0.0, 1.0, 1.0),
+        });
+        scene.add_sphere(Sphere {
+            center: Vec3::new(2., 0., 0.),
+            radius: 0.5,
+            albedo: Vec3::new(1.0, 1.0, 0.0),
+        });
+
+        let mut camera = Camera::default();
+        camera.set_position((0., 0., 5.).into());
+
+        Self {
             viewport_id: None,
             viewport_size: [400.0, 400.0],
             image_size: [0.0, 0.0],
             timer: Timer::new(),
             renderer: Renderer::new(400, 400),
-            scene: Scene::default(),
-            camera: Camera::default(),
-            sphere_color_ui: [0.0; 3],
-            light_direction_ui: [0.0; 3],
-            camera_position_ui: [0.0; 3],
-            camera_direction_ui: [0.0; 3],
-        };
-
-        rv.scene
-            .sphere_color()
-            .write_to_slice(&mut rv.sphere_color_ui);
-        rv.scene
-            .light_direction()
-            .write_to_slice(&mut rv.light_direction_ui);
-        rv.camera
-            .position()
-            .write_to_slice(&mut rv.camera_position_ui);
-        rv.camera
-            .look_direction()
-            .write_to_slice(&mut rv.camera_direction_ui);
-
-        rv
+            scene,
+            camera,
+        }
     }
 }
 
@@ -80,6 +77,10 @@ impl App {
         let dt = ui.io().delta_time;
         let mut camera_offset = Vec3::ZERO;
         let mut camera_rotate = [0.0, 0.0];
+
+        let mut camera_position_ui: Vec3 = self.camera.position();
+        let mut camera_direction_ui: Vec3 = self.camera.look_direction();
+        let mut light_direction_ui: Vec3 = self.scene.light_direction();
 
         if ui.is_mouse_down(MouseButton::Right) {
             if ui.is_key_down(Key::D) {
@@ -109,13 +110,15 @@ impl App {
 
             if camera_offset != Vec3::ZERO {
                 camera_offset = camera_offset.normalize();
-                self.camera.relative_move(camera_offset, dt);
+                camera_position_ui = *self.camera.relative_move(camera_offset, dt);
             }
             if camera_rotate != [0.0, 0.0] {
-                self.camera.relative_turn(camera_rotate, dt);
+                self.camera
+                    .relative_turn(camera_rotate, dt)
+                    .write_to_slice(camera_direction_ui.as_mut());
             }
         }
- 
+
         {
             // scope for style tokens
             let _padding_style = ui.push_style_var(imgui::StyleVar::WindowPadding([0.0, 0.0]));
@@ -155,36 +158,45 @@ impl App {
         ui.window("Settings")
             .size([300., 300.], Condition::FirstUseEver)
             .build(|| {
-                if ui.color_edit3("Sphere color", &mut self.sphere_color_ui) {
-                    self.scene
-                        .set_sphere_color(Vec3::from(self.sphere_color_ui));
-                };
-
                 if imgui::Drag::new("Light direction")
                     .range(-1., 1.)
                     .speed(0.01)
-                    .build_array(ui, &mut self.light_direction_ui)
+                    .build_array(ui, light_direction_ui.as_mut())
                 {
-                    self.scene
-                        .set_light_direction(Vec3::from(self.light_direction_ui));
+                    self.scene.set_light_direction(light_direction_ui);
                 }
 
                 if imgui::Drag::new("Camera position")
                     .range(-10., 10.)
                     .speed(0.1)
-                    .build_array(ui, &mut self.camera_position_ui)
+                    .build_array(ui, camera_position_ui.as_mut())
                 {
-                    self.camera
-                        .set_position(Vec3::from(self.camera_position_ui))
+                    self.camera.set_position(camera_position_ui)
                 }
 
                 if imgui::Drag::new("Camera direction")
                     .range(-1., 1.)
                     .speed(0.01)
-                    .build_array(ui, &mut self.camera_direction_ui)
+                    .build_array(ui, camera_direction_ui.as_mut())
                 {
-                    self.camera
-                        .set_look_direction(Vec3::from(self.camera_direction_ui));
+                    self.camera.set_look_direction(camera_direction_ui);
+                }
+
+                ui.separator();
+
+                let sphere_count = self.scene.spheres().len();
+                for (idx, sphere) in self.scene.spheres_mut().iter_mut().enumerate() {
+                    let _id = ui.push_id_usize(idx);
+                    ui.text(format!("Sphere {idx}"));
+                    imgui::Drag::new("Position")
+                        .range((-10.0..10.0).start, (-10.0..10.0).end)
+                        .speed(0.1)
+                        .build_array(ui, sphere.center.as_mut());
+                    ui.color_edit3("Albedo", sphere.albedo.as_mut());
+                    imgui::Drag::new("Radius").range(0.1, 3.0).speed(0.03).build(ui, &mut sphere.radius);
+                    if idx < sphere_count - 1 {
+                        ui.separator();
+                    }
                 }
             });
     }
