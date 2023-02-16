@@ -6,4 +6,4 @@ mod util;
 
 pub use camera::Camera;
 pub use renderer::Renderer;
-pub use scene::{Scene, Sphere, Material};
+pub use scene::{Material, Scene, Sphere};

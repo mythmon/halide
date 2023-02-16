@@ -113,8 +113,7 @@ fn per_pixel(ctx @ RenderFrame { scene, camera }: &RenderFrame, x: u32, y: u32) 
                 multiplier *= 0.7;
 
                 ray.origin = world_position + world_normal * 0.0001;
-                let normal_offset: Vec3 =
-                    0.5 * material.roughness * rng.gen::<Vec3>();
+                let normal_offset: Vec3 = 0.5 * material.roughness * rng.gen::<Vec3>();
                 let reflection_normal = (world_normal + normal_offset).normalize();
                 ray.direction = ray.direction.reflect(reflection_normal);
             }

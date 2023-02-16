@@ -34,8 +34,8 @@ pub fn xy_index<X: Into<u32>, Y: Into<u32>, W: Into<u32>>(x: X, y: Y, w: W) -> u
 
 #[cfg(test)]
 mod tests {
-    use glam::Vec3;
     use crate::util::Vec3Ext;
+    use glam::Vec3;
 
     #[test]
     fn reflect() {

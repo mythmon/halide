@@ -130,7 +130,9 @@ impl Camera {
             self.compute_ray_directions();
         }
         let index = xy_index(x, y, self.width);
-        Ref::map(self.cached_directions.borrow(), |b| &b.as_ref().unwrap()[index])
+        Ref::map(self.cached_directions.borrow(), |b| {
+            &b.as_ref().unwrap()[index]
+        })
     }
 
     fn clear_ray_cache(&self) {
