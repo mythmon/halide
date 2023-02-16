@@ -1,7 +1,7 @@
 use anyhow::Result;
 use glam::Vec3;
 use glium::{backend::Facade, texture::RawImage2d, uniforms::SamplerBehavior};
-use halide_raytracer::{Camera, Renderer, Scene, Sphere};
+use halide_raytracer::{Camera, Material, Renderer, Scene, Sphere};
 use imgui::{Condition, Key, MouseButton, TextureId, Textures};
 use imgui_glium_renderer::Texture;
 use std::rc::Rc;
@@ -36,24 +36,30 @@ struct App {
 impl Default for App {
     fn default() -> Self {
         let mut scene = Scene::default();
-        scene.add_sphere(Sphere {
-            center: Vec3::new(-2., 0., 0.),
-            radius: 0.5,
-            albedo: Vec3::new(1.0, 0.0, 1.0),
+
+        let ground_material = scene.add_material(Material {
+            albedo: Vec3::new(0.7, 0.7, 0.7),
+            ..Default::default()
         });
-        scene.add_sphere(Sphere {
-            center: Vec3::new(0., 0., 0.),
-            radius: 0.5,
-            albedo: Vec3::new(0.0, 1.0, 1.0),
+        let ball_material = scene.add_material(Material {
+            albedo: Vec3::new(0.9, 0.2, 0.1),
+            ..Default::default()
         });
+
         scene.add_sphere(Sphere {
-            center: Vec3::new(2., 0., 0.),
+            center: Vec3::new(0., -10_000., 0.),
+            radius: 10_000.,
+            material_index: ground_material,
+        });
+
+        scene.add_sphere(Sphere {
+            center: Vec3::new(0., 0.5, 0.),
             radius: 0.5,
-            albedo: Vec3::new(1.0, 1.0, 0.0),
+            material_index: ball_material,
         });
 
         let mut camera = Camera::default();
-        camera.set_position((0., 0., 5.).into());
+        camera.set_position((0., 0.75, 4.).into());
 
         Self {
             viewport_id: None,
@@ -184,6 +190,7 @@ impl App {
                 ui.separator();
 
                 let sphere_count = self.scene.spheres().len();
+                let material_count = self.scene.materials().len();
                 for (idx, sphere) in self.scene.spheres_mut().iter_mut().enumerate() {
                     let _id = ui.push_id_usize(idx);
                     ui.text(format!("Sphere {idx}"));
@@ -191,8 +198,28 @@ impl App {
                         .range((-10.0..10.0).start, (-10.0..10.0).end)
                         .speed(0.1)
                         .build_array(ui, sphere.center.as_mut());
-                    ui.color_edit3("Albedo", sphere.albedo.as_mut());
-                    imgui::Drag::new("Radius").range(0.1, 3.0).speed(0.03).build(ui, &mut sphere.radius);
+                    imgui::Drag::new("Radius")
+                        .range(0.1, 3.0)
+                        .speed(0.03)
+                        .build(ui, &mut sphere.radius);
+                    imgui::Drag::new("Material")
+                        .range(0, material_count - 1)
+                        .speed(0.1)
+                        .build(ui, &mut sphere.material_index);
+                }
+
+                for (idx, material) in self.scene.materials_mut().iter_mut().enumerate() {
+                    let _id = ui.push_id_usize(idx);
+                    ui.text(format!("Material {idx}"));
+                    ui.color_edit3("Albedo", material.albedo.as_mut());
+                    imgui::Drag::new("Roughness")
+                        .range(0.0, 1.0)
+                        .speed(0.01)
+                        .build(ui, &mut material.roughness);
+                    imgui::Drag::new("Metallic")
+                        .range(0.0, 1.0)
+                        .speed(0.01)
+                        .build(ui, &mut material.metallic);
                     if idx < sphere_count - 1 {
                         ui.separator();
                     }

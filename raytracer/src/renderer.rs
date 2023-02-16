@@ -4,6 +4,7 @@ use crate::{
     Camera, Scene,
 };
 use glam::Vec3;
+use rand::Rng;
 use std::borrow::Cow;
 
 pub struct Renderer {
@@ -66,11 +67,12 @@ fn per_pixel(ctx @ RenderFrame { scene, camera }: &RenderFrame, x: u32, y: u32) 
         origin: camera.position(),
         direction: *camera.get_ray_direction(x, y),
     };
-    const BOUNCES: u32 = 2;
-    const SKY_COLOR: Vec3 = Vec3::ZERO;
+    const BOUNCES: u32 = 16;
+    const SKY_COLOR: Vec3 = Vec3::new(0.6, 0.7, 0.9);
     let mut multiplier = 1.0;
 
     let mut final_color = Vec3::ZERO;
+    let mut rng = rand::thread_rng();
     for _ in 0..BOUNCES {
         match trace_ray(ctx, &ray) {
             HitPayload::Hit {
@@ -78,14 +80,18 @@ fn per_pixel(ctx @ RenderFrame { scene, camera }: &RenderFrame, x: u32, y: u32) 
                 world_normal,
                 world_position,
             } => {
-                let sphere = &scene.spheres()[object_index];
+                let sphere = &scene.sphere(object_index);
+                let material = &scene.material(sphere.material_index);
                 let light_intensity = world_normal.dot(-scene.light_direction()).max(0.0);
-                let color = sphere.albedo * light_intensity;
+                let color = material.albedo * light_intensity;
                 final_color += color * multiplier;
                 multiplier *= 0.7;
 
                 ray.origin = world_position + world_normal * 0.0001;
-                ray.direction = ray.direction.reflect(world_normal);
+                let reflection_normal = (world_normal
+                    + material.roughness * rng.gen_range(-0.5..=0.5))
+                .normalize();
+                ray.direction = ray.direction.reflect(reflection_normal);
             }
             HitPayload::Miss => {
                 final_color += SKY_COLOR * multiplier;
