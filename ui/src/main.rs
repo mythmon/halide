@@ -152,7 +152,6 @@ impl App {
                         duration.as_secs_f32() * 1000.0
                     ));
                 }
-                ui.text(format!("Camera motion\n\ttranslate: {}", camera_offset));
             });
 
         ui.window("Settings")

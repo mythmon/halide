@@ -123,6 +123,14 @@ impl Camera {
         })
     }
 
+    pub fn get_ray_direction(&self, x: u32, y: u32) -> impl Deref<Target = Vec3> + '_ {
+        if self.cached_directions.borrow().is_none() {
+            self.compute_ray_directions();
+        }
+        let index = (x + self.width * y) as usize;
+        Ref::map(self.cached_directions.borrow(), |b| &b.as_ref().unwrap()[index])
+    }
+
     fn clear_ray_cache(&self) {
         self.cached_directions.replace(None);
     }

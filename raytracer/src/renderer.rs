@@ -1,4 +1,8 @@
-use crate::{geom::Ray, util::color_rgb, Camera, Scene};
+use crate::{
+    geom::Ray,
+    util::{color_rgb, Vec3Ext},
+    Camera, Scene,
+};
 use glam::Vec3;
 use std::borrow::Cow;
 
@@ -7,12 +11,6 @@ pub struct Renderer {
     pub(crate) image_data: Vec<u32>,
     pub(crate) width: u32,
     pub(crate) height: u32,
-}
-
-struct RenderContext<'a> {
-    scene: &'a Scene,
-    ray: Ray,
-    camera: &'a Camera,
 }
 
 impl Renderer {
@@ -39,32 +37,81 @@ impl Renderer {
     }
 
     pub fn render<'a>(&mut self, scene: &'a Scene, camera: &'a Camera) -> Cow<[u32]> {
-        let mut ctx = RenderContext {
-            scene,
-            camera,
-            ray: Ray {
-                origin: camera.position(),
-                ..Default::default()
-            },
-        };
+        let ctx = RenderFrame { scene, camera };
 
-        let dirs = camera.get_ray_directions();
         self.image_data.truncate(0);
-        let iter = dirs.iter().map(|ray_dir| {
-            ctx.ray.direction = *ray_dir;
-            let color = trace_ray(&ctx).clamp(Vec3::ZERO, Vec3::ONE);
-            color_rgb(&color)
-        });
-        self.image_data.extend(iter);
+        self.image_data
+            .reserve_exact((self.width * self.height) as usize);
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let color = per_pixel(&ctx, x, y);
+                self.image_data.push(color_rgb(&color));
+            }
+        }
 
         Cow::Borrowed(self.image_data.as_slice())
     }
 }
 
-fn trace_ray(RenderContext { scene, ray, camera }: &RenderContext) -> Vec3 {
-    let mut closest_hit = None;
+struct RenderFrame<'a> {
+    scene: &'a Scene,
+    camera: &'a Camera,
+}
 
-    for sphere in scene.spheres() {
+impl<'a> RenderFrame<'a> {}
+
+/// Called once per pixel. Generates rays.
+fn per_pixel(ctx @ RenderFrame { scene, camera }: &RenderFrame, x: u32, y: u32) -> Vec3 {
+    let mut ray = Ray {
+        origin: camera.position(),
+        direction: *camera.get_ray_direction(x, y),
+    };
+    const BOUNCES: u32 = 2;
+    const SKY_COLOR: Vec3 = Vec3::ZERO;
+    let mut multiplier = 1.0;
+
+    let mut final_color = Vec3::ZERO;
+    for _ in 0..BOUNCES {
+        match trace_ray(ctx, &ray) {
+            HitPayload::Hit {
+                object_index,
+                world_normal,
+                world_position,
+            } => {
+                let sphere = &scene.spheres()[object_index];
+                let light_intensity = world_normal.dot(-scene.light_direction()).max(0.0);
+                let color = sphere.albedo * light_intensity;
+                final_color += color * multiplier;
+                multiplier *= 0.7;
+
+                ray.origin = world_position + world_normal * 0.0001;
+                ray.direction = ray.direction.reflect(world_normal);
+            }
+            HitPayload::Miss => {
+                final_color += SKY_COLOR * multiplier;
+                break;
+            }
+        };
+    }
+
+    final_color
+}
+
+enum HitPayload {
+    Hit {
+        // hit_distance: f32,
+        world_normal: Vec3,
+        world_position: Vec3,
+        object_index: usize,
+    },
+    Miss,
+}
+
+/// Shoot a ray from a given location and return information about any potential hits.
+fn trace_ray(ctx @ RenderFrame { scene, camera }: &RenderFrame, ray: &Ray) -> HitPayload {
+    let mut closest = None;
+
+    for (index, sphere) in scene.spheres().iter().enumerate() {
         let offset_center = ray.origin - sphere.center;
 
         // solve the equation of the ray set equal to the equation of a sphere centered on the origin.
@@ -81,20 +128,45 @@ fn trace_ray(RenderContext { scene, ray, camera }: &RenderContext) -> Vec3 {
             // finish the quadratic equation, though we only need the least result
             let t0 = (-b - discrim.sqrt()) / (2. * a);
             if camera.look_clip().contains(&t0) {
-                let closest = closest_hit.get_or_insert((sphere, t0));
-                if closest.1 > t0 {
-                    *closest = (sphere, t0);
+                match closest {
+                    Some((_, min_t)) if t0 < min_t => {
+                        closest = Some((index, t0));
+                    }
+                    None => {
+                        closest = Some((index, t0));
+                    }
+                    _ => (),
                 }
             }
         }
     }
 
-    if let Some((sphere, t)) = closest_hit {
-        let hit_pos = ray.origin - sphere.center + ray.direction * t;
-        let normal = hit_pos.normalize();
-        let d = normal.dot(-scene.light_direction()).max(0.0);
-        sphere.albedo * d
+    if let Some((object_index, t)) = closest {
+        on_hit(ctx, ray, object_index, t)
     } else {
-        Vec3::ZERO
+        on_miss(ray)
     }
+}
+
+/// invoked when something is hit
+fn on_hit(
+    RenderFrame { scene, .. }: &RenderFrame,
+    ray: &Ray,
+    object_index: usize,
+    hit_distance: f32,
+) -> HitPayload {
+    let sphere = &scene.spheres()[object_index];
+    let hit_pos = ray.origin + ray.direction * hit_distance;
+    let world_normal = (hit_pos - sphere.center).normalize();
+    HitPayload::Hit {
+        // hit_distance,
+        world_normal,
+        world_position: hit_pos,
+        object_index,
+    }
+}
+
+/// invoked when a ray misses all objects
+fn on_miss(_ray: &Ray) -> HitPayload {
+    HitPayload::Miss
 }
