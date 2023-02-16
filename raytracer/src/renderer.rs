@@ -1,6 +1,6 @@
 use crate::{
     geom::Ray,
-    util::{color_rgb, Vec3Ext, xy_index},
+    util::{color_rgb, xy_index, Vec3Ext},
     Camera, Scene,
 };
 use glam::Vec3;
@@ -113,8 +113,9 @@ fn per_pixel(ctx @ RenderFrame { scene, camera }: &RenderFrame, x: u32, y: u32) 
                 multiplier *= 0.7;
 
                 ray.origin = world_position + world_normal * 0.0001;
-                let reflection_normal =
-                    (world_normal + material.roughness * rng.gen_range(-0.5..=0.5)).normalize();
+                let normal_offset: Vec3 =
+                    0.5 * material.roughness * rng.gen::<Vec3>();
+                let reflection_normal = (world_normal + normal_offset).normalize();
                 ray.direction = ray.direction.reflect(reflection_normal);
             }
             HitPayload::Miss => {

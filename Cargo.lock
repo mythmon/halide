@@ -444,6 +444,9 @@ name = "glam"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12f597d56c1bd55a811a1be189459e8fad2bbc272616375602443bdfb37fa774"
+dependencies = [
+ "rand",
+]
 
 [[package]]
 name = "glium"
@@ -532,7 +535,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "glam",
- "pix",
  "rand",
 ]
 
@@ -547,7 +549,6 @@ dependencies = [
  "imgui",
  "imgui-glium-renderer",
  "imgui-winit-support",
- "pix",
 ]
 
 [[package]]
@@ -941,12 +942,6 @@ name = "percent-encoding"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
-
-[[package]]
-name = "pix"
-version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c2b6992b377680150280d4708bda8207ba9e71f70507b5504f2e28d8e8e48c1"
 
 [[package]]
 name = "pkg-config"

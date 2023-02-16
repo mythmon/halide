@@ -5,6 +5,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.69"
-glam = { version = "0.22.0", features = ["glam-assert"] }
-pix = "0.13.2"
+glam = { version = "0.22.0", features = ["glam-assert", "rand"] }
 rand = "0.8.5"
