@@ -4,6 +4,8 @@ use std::{
     ops::{Deref, Range},
 };
 
+use crate::util::xy_index;
+
 pub struct Camera {
     position: Vec3,
     look_direction: Vec3,
@@ -127,7 +129,7 @@ impl Camera {
         if self.cached_directions.borrow().is_none() {
             self.compute_ray_directions();
         }
-        let index = (x + self.width * y) as usize;
+        let index = xy_index(x, y, self.width);
         Ref::map(self.cached_directions.borrow(), |b| &b.as_ref().unwrap()[index])
     }
 

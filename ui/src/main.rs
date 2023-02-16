@@ -117,11 +117,13 @@ impl App {
             if camera_offset != Vec3::ZERO {
                 camera_offset = camera_offset.normalize();
                 camera_position_ui = *self.camera.relative_move(camera_offset, dt);
+                self.renderer.reset_accumulation();
             }
             if camera_rotate != [0.0, 0.0] {
                 self.camera
                     .relative_turn(camera_rotate, dt)
                     .write_to_slice(camera_direction_ui.as_mut());
+                self.renderer.reset_accumulation();
             }
         }
 
@@ -169,6 +171,13 @@ impl App {
                     .build_array(ui, light_direction_ui.as_mut())
                 {
                     self.scene.set_light_direction(light_direction_ui);
+                    self.renderer.reset_accumulation();
+                }
+
+                ui.checkbox("Accumulation", &mut self.renderer.use_accumulation);
+                ui.same_line();
+                if ui.button("Reset") {
+                    self.renderer.reset_accumulation()
                 }
 
                 if imgui::Drag::new("Camera position")
@@ -176,7 +185,8 @@ impl App {
                     .speed(0.1)
                     .build_array(ui, camera_position_ui.as_mut())
                 {
-                    self.camera.set_position(camera_position_ui)
+                    self.camera.set_position(camera_position_ui);
+                    self.renderer.reset_accumulation();
                 }
 
                 if imgui::Drag::new("Camera direction")
@@ -185,6 +195,7 @@ impl App {
                     .build_array(ui, camera_direction_ui.as_mut())
                 {
                     self.camera.set_look_direction(camera_direction_ui);
+                    self.renderer.reset_accumulation();
                 }
 
                 ui.separator();
@@ -194,32 +205,51 @@ impl App {
                 for (idx, sphere) in self.scene.spheres_mut().iter_mut().enumerate() {
                     let _id = ui.push_id_usize(idx);
                     ui.text(format!("Sphere {idx}"));
-                    imgui::Drag::new("Position")
+                    if imgui::Drag::new("Position")
                         .range((-10.0..10.0).start, (-10.0..10.0).end)
                         .speed(0.1)
-                        .build_array(ui, sphere.center.as_mut());
-                    imgui::Drag::new("Radius")
+                        .build_array(ui, sphere.center.as_mut())
+                    {
+                        self.renderer.reset_accumulation();
+                    }
+                    if imgui::Drag::new("Radius")
                         .range(0.1, 3.0)
                         .speed(0.03)
-                        .build(ui, &mut sphere.radius);
-                    imgui::Drag::new("Material")
+                        .build(ui, &mut sphere.radius)
+                    {
+                        self.renderer.reset_accumulation();
+                    }
+                    if imgui::Drag::new("Material")
                         .range(0, material_count - 1)
                         .speed(0.1)
-                        .build(ui, &mut sphere.material_index);
+                        .build(ui, &mut sphere.material_index)
+                    {
+                        self.renderer.reset_accumulation();
+                    }
                 }
+
+                ui.separator();
 
                 for (idx, material) in self.scene.materials_mut().iter_mut().enumerate() {
                     let _id = ui.push_id_usize(idx);
                     ui.text(format!("Material {idx}"));
-                    ui.color_edit3("Albedo", material.albedo.as_mut());
-                    imgui::Drag::new("Roughness")
+                    if ui.color_edit3("Albedo", material.albedo.as_mut()) {
+                        self.renderer.reset_accumulation();
+                    }
+                    if imgui::Drag::new("Roughness")
                         .range(0.0, 1.0)
                         .speed(0.01)
-                        .build(ui, &mut material.roughness);
-                    imgui::Drag::new("Metallic")
+                        .build(ui, &mut material.roughness)
+                    {
+                        self.renderer.reset_accumulation();
+                    }
+                    if imgui::Drag::new("Metallic")
                         .range(0.0, 1.0)
                         .speed(0.01)
-                        .build(ui, &mut material.metallic);
+                        .build(ui, &mut material.metallic)
+                    {
+                        self.renderer.reset_accumulation();
+                    }
                     if idx < sphere_count - 1 {
                         ui.separator();
                     }

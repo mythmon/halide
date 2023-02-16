@@ -25,6 +25,12 @@ impl Vec3Ext for Vec3 {
     }
 }
 
+pub fn xy_index<X: Into<u32>, Y: Into<u32>, W: Into<u32>>(x: X, y: Y, w: W) -> usize {
+    let x = x.into() as usize;
+    let y = y.into() as usize;
+    let w = w.into() as usize;
+    x + w * y
+}
 
 #[cfg(test)]
 mod tests {

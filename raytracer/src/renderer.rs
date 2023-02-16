@@ -1,6 +1,6 @@
 use crate::{
     geom::Ray,
-    util::{color_rgb, Vec3Ext},
+    util::{color_rgb, Vec3Ext, xy_index},
     Camera, Scene,
 };
 use glam::Vec3;
@@ -8,47 +8,72 @@ use rand::Rng;
 use std::borrow::Cow;
 
 pub struct Renderer {
-    // in ABGR order
-    pub(crate) image_data: Vec<u32>,
-    pub(crate) width: u32,
-    pub(crate) height: u32,
+    image_data: Vec<u32>,
+    accumulation: Vec<Vec3>,
+    frame_count: f32,
+    width: u32,
+    height: u32,
+    pub use_accumulation: bool,
 }
 
 impl Renderer {
     pub fn new(width: u32, height: u32) -> Self {
+        let length = width as usize * height as usize;
+        let mut accumulation = Vec::with_capacity(length);
+        accumulation.resize(length, Vec3::ZERO);
+
         Self {
-            image_data: Vec::default(),
+            image_data: Vec::with_capacity(width as usize * height as usize),
+            accumulation,
+            frame_count: 0.,
             width,
             height,
+            use_accumulation: true,
         }
     }
 
     #[inline(always)]
-    pub(crate) fn image_len(&self) -> usize {
+    fn image_len(&self) -> usize {
         self.width as usize * self.height as usize
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
         if (self.width, self.height) != (width, height) {
-            self.image_data.truncate(0);
-            self.image_data.reserve(self.image_len());
             self.width = width;
             self.height = height;
+            self.reset_accumulation();
+            self.image_data.truncate(0);
+            self.image_data.resize(self.image_len(), 0);
         }
+    }
+
+    pub fn reset_accumulation(&mut self) {
+        self.accumulation.truncate(0);
+        self.accumulation.resize(self.image_len(), Vec3::ZERO);
+        self.frame_count = 0.0;
     }
 
     pub fn render<'a>(&mut self, scene: &'a Scene, camera: &'a Camera) -> Cow<[u32]> {
         let ctx = RenderFrame { scene, camera };
 
-        self.image_data.truncate(0);
-        self.image_data
-            .reserve_exact((self.width * self.height) as usize);
+        if !self.use_accumulation {
+            self.reset_accumulation();
+        }
+
+        self.frame_count += 1.;
         for y in 0..self.height {
             for x in 0..self.width {
                 let color = per_pixel(&ctx, x, y);
-                self.image_data.push(color_rgb(&color));
+                self.accumulation[xy_index(x, y, self.width)] += color;
             }
         }
+
+        let iter = self
+            .accumulation
+            .iter()
+            .map(|c| color_rgb(&(*c / self.frame_count)));
+        self.image_data.truncate(0);
+        self.image_data.extend(iter);
 
         Cow::Borrowed(self.image_data.as_slice())
     }
@@ -88,9 +113,8 @@ fn per_pixel(ctx @ RenderFrame { scene, camera }: &RenderFrame, x: u32, y: u32) 
                 multiplier *= 0.7;
 
                 ray.origin = world_position + world_normal * 0.0001;
-                let reflection_normal = (world_normal
-                    + material.roughness * rng.gen_range(-0.5..=0.5))
-                .normalize();
+                let reflection_normal =
+                    (world_normal + material.roughness * rng.gen_range(-0.5..=0.5)).normalize();
                 ray.direction = ray.direction.reflect(reflection_normal);
             }
             HitPayload::Miss => {

@@ -8,7 +8,7 @@
       "type": "lldb",
       "request": "launch",
       "sourceLanguages": ["rust"],
-      "name": "Debug executable 'halide-ui'",
+      "name": "Launch (Release mode)",
       "cargo": {
         "args": [
           "build",
@@ -28,24 +28,9 @@
       "type": "lldb",
       "request": "launch",
       "sourceLanguages": ["rust"],
-      "name": "Debug unit tests in library 'halide-raytracer'",
+      "name": "Launch (Debug mode)",
       "cargo": {
-        "args": ["test", "--no-run", "--lib", "--package=halide-raytracer"],
-        "filter": {
-          "name": "halide-raytracer",
-          "kind": "lib"
-        }
-      },
-      "args": [],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
-      "sourceLanguages": ["rust"],
-      "name": "Debug unit tests in executable 'halide-ui'",
-      "cargo": {
-        "args": ["test", "--no-run", "--bin=halide-ui", "--package=halide-ui"],
+        "args": ["build", "--bin=halide-ui", "--package=halide-ui"],
         "filter": {
           "name": "halide-ui",
           "kind": "bin"
