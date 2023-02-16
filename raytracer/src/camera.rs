@@ -1,10 +1,7 @@
-use glam::{Mat4, Quat, Vec2, Vec3, Vec4Swizzles};
-use std::{
-    cell::{Ref, RefCell},
-    ops::{Deref, Range},
-};
-
 use crate::util::xy_index;
+use glam::{Mat4, Quat, Vec2, Vec3, Vec4Swizzles};
+use parking_lot::{RwLock, RwLockReadGuard};
+use std::ops::{Deref, Range};
 
 pub struct Camera {
     position: Vec3,
@@ -15,7 +12,7 @@ pub struct Camera {
     width: u32,
     height: u32,
     look_clip: Range<f32>,
-    cached_directions: RefCell<Option<Vec<Vec3>>>,
+    cached_directions: RwLock<Option<Vec<Vec3>>>,
 }
 
 impl Default for Camera {
@@ -29,7 +26,7 @@ impl Default for Camera {
             width: 640,
             height: 480,
             look_clip: 0.01..100.0,
-            cached_directions: RefCell::new(None),
+            cached_directions: RwLock::new(None),
         }
     }
 }
@@ -117,26 +114,31 @@ impl Camera {
     }
 
     pub fn get_ray_directions(&self) -> impl Deref<Target = [Vec3]> + '_ {
-        if self.cached_directions.borrow().is_none() {
-            self.compute_ray_directions();
-        }
-        Ref::map(self.cached_directions.borrow(), |b| {
-            b.as_ref().unwrap().as_slice()
-        })
+        self.map_ray_directions(|d| d.as_ref().unwrap().as_slice())
     }
 
     pub fn get_ray_direction(&self, x: u32, y: u32) -> impl Deref<Target = Vec3> + '_ {
-        if self.cached_directions.borrow().is_none() {
-            self.compute_ray_directions();
-        }
         let index = xy_index(x, y, self.width);
-        Ref::map(self.cached_directions.borrow(), |b| {
-            &b.as_ref().unwrap()[index]
-        })
+        self.map_ray_directions(move |d| &d.as_ref().unwrap()[index])
+    }
+
+    fn map_ray_directions<'a, U, F>(&'a self, f: F) -> impl Deref<Target = U> + 'a
+    where
+        F: FnMut(&Option<Vec<Vec3>>) -> &U,
+        U: 'a + ?Sized,
+    {
+        let mut dirs = self.cached_directions.read();
+        if dirs.is_none() {
+            drop(dirs);
+            self.compute_ray_directions();
+            dirs = self.cached_directions.read();
+        }
+        RwLockReadGuard::map(dirs, f)
     }
 
     fn clear_ray_cache(&self) {
-        self.cached_directions.replace(None);
+        let mut dirs = self.cached_directions.write();
+        *dirs = None;
     }
 
     fn compute_ray_directions(&self) {
@@ -170,6 +172,7 @@ impl Camera {
             }
         }
 
-        let _ = self.cached_directions.borrow_mut().insert(ray_directions);
+        let mut dirs = self.cached_directions.write();
+        *dirs = Some(ray_directions);
     }
 }

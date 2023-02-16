@@ -1,10 +1,11 @@
 use crate::{
     geom::Ray,
-    util::{color_rgb, xy_index, Vec3Ext},
+    util::{color_rgb, Vec3Ext},
     Camera, Scene,
 };
 use glam::Vec3;
 use rand::Rng;
+use rayon::prelude::*;
 use std::borrow::Cow;
 
 pub struct Renderer {
@@ -14,6 +15,7 @@ pub struct Renderer {
     width: u32,
     height: u32,
     pub use_accumulation: bool,
+    pub use_parallel: bool,
 }
 
 impl Renderer {
@@ -29,6 +31,7 @@ impl Renderer {
             width,
             height,
             use_accumulation: true,
+            use_parallel: false,
         }
     }
 
@@ -60,20 +63,37 @@ impl Renderer {
             self.reset_accumulation();
         }
 
+        self.image_data.resize(self.image_len(), 0);
+        self.accumulation.resize(self.image_len(), Vec3::ZERO);
         self.frame_count += 1.;
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let color = per_pixel(&ctx, x, y);
-                self.accumulation[xy_index(x, y, self.width)] += color;
-            }
-        }
 
-        let iter = self
-            .accumulation
-            .iter()
-            .map(|c| color_rgb(&(*c / self.frame_count)));
-        self.image_data.truncate(0);
-        self.image_data.extend(iter);
+        let w = self.width;
+        let frame_count = self.frame_count;
+        let step = move |i| {
+            let x = i % w;
+            let y = i / w;
+            per_pixel(&ctx, x, y)
+        };
+        let indices = 0..(self.image_len() as u32);
+        if self.use_parallel {
+            self.image_data.resize(self.image_len(), 0);
+            (indices, &mut self.accumulation, &mut self.image_data)
+                .into_par_iter()
+                .for_each(|(idx, acc, output)| {
+                    *acc += step(idx);
+                    *output = color_rgb(*acc / frame_count);
+                });
+        } else {
+            let next_frame = indices.into_iter().map(step).collect::<Vec<_>>();
+            self.accumulation
+                .iter_mut()
+                .zip(next_frame)
+                .zip(self.image_data.iter_mut())
+                .for_each(|((acc, next), pixel)| {
+                    *acc += next;
+                    *pixel = color_rgb(*acc / frame_count)
+                });
+        }
 
         Cow::Borrowed(self.image_data.as_slice())
     }

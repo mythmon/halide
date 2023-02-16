@@ -9,7 +9,7 @@ pub(crate) fn color_rgba(c: &Vec4) -> u32 {
     a << 24 | b << 16 | g << 8 | r
 }
 
-pub(crate) fn color_rgb(c: &Vec3) -> u32 {
+pub(crate) fn color_rgb(c: Vec3) -> u32 {
     color_rgba(&c.extend(1.))
 }
 

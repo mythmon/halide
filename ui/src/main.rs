@@ -180,6 +180,8 @@ impl App {
                     self.renderer.reset_accumulation()
                 }
 
+                ui.checkbox("Parallel", &mut self.renderer.use_parallel);
+
                 if imgui::Drag::new("Camera position")
                     .range(-10., 10.)
                     .speed(0.1)
