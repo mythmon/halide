@@ -5,7 +5,7 @@ use crate::{
 };
 use glam::Vec3;
 use rand::Rng;
-use rayon::prelude::*;
+use rayon::{prelude::*, ThreadPool};
 use std::borrow::Cow;
 
 pub struct Renderer {
@@ -15,7 +15,7 @@ pub struct Renderer {
     width: u32,
     height: u32,
     pub use_accumulation: bool,
-    pub num_threads: usize,
+    pool: ThreadPool,
 }
 
 impl Renderer {
@@ -31,7 +31,7 @@ impl Renderer {
             width,
             height,
             use_accumulation: true,
-            num_threads: 0,
+            pool: rayon::ThreadPoolBuilder::default().build().unwrap(),
         }
     }
 
@@ -56,6 +56,14 @@ impl Renderer {
         self.frame_count = 0.0;
     }
 
+    pub fn num_threads(&self) -> usize {
+        self.pool.current_num_threads()
+    }
+
+    pub fn set_num_threads(&mut self, num_threads: usize) {
+        self.pool = rayon::ThreadPoolBuilder::default().num_threads(num_threads).build().unwrap();
+    }
+
     pub fn render<'a>(&mut self, scene: &'a Scene, camera: &'a Camera) -> Cow<[u32]> {
         let ctx = RenderFrame { scene, camera };
 
@@ -77,12 +85,8 @@ impl Renderer {
             })
             .collect::<Vec<_>>();
 
-        let mut pool_builder = rayon::ThreadPoolBuilder::default();
-        if self.num_threads > 0 {
-            pool_builder = pool_builder.num_threads(self.num_threads);
-        }
         self.image_data.resize(self.image_len(), 0);
-        pool_builder.build().unwrap().install(|| {
+        self.pool.install(|| {
             (&mut self.accumulation, &mut self.image_data, rays)
                 .into_par_iter()
                 .for_each(|(acc, output, ray)| {

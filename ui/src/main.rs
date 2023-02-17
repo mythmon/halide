@@ -180,10 +180,14 @@ impl App {
                     self.renderer.reset_accumulation()
                 }
 
-                imgui::Drag::new("Thread count")
-                    .range(0, num_cpus::get() * 2)
-                    .speed(0.1)
-                    .build(ui, &mut self.renderer.num_threads);
+                let mut local_num_threads = self.renderer.num_threads();
+                if imgui::Drag::new("Thread count")
+                    .range(1, num_cpus::get() * 2)
+                    .speed(0.15)
+                    .build(ui, &mut local_num_threads)
+                {
+                    self.renderer.set_num_threads(local_num_threads);
+                }
 
                 if imgui::Drag::new("Camera position")
                     .range(-10., 10.)
