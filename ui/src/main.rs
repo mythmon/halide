@@ -180,7 +180,10 @@ impl App {
                     self.renderer.reset_accumulation()
                 }
 
-                ui.checkbox("Parallel", &mut self.renderer.use_parallel);
+                imgui::Drag::new("Thread count")
+                    .range(0, num_cpus::get() * 2)
+                    .speed(0.1)
+                    .build(ui, &mut self.renderer.num_threads);
 
                 if imgui::Drag::new("Camera position")
                     .range(-10., 10.)

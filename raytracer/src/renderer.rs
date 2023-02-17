@@ -15,7 +15,7 @@ pub struct Renderer {
     width: u32,
     height: u32,
     pub use_accumulation: bool,
-    pub use_parallel: bool,
+    pub num_threads: usize,
 }
 
 impl Renderer {
@@ -31,7 +31,7 @@ impl Renderer {
             width,
             height,
             use_accumulation: true,
-            use_parallel: false,
+            num_threads: 0,
         }
     }
 
@@ -67,33 +67,29 @@ impl Renderer {
         self.accumulation.resize(self.image_len(), Vec3::ZERO);
         self.frame_count += 1.;
 
-        let w = self.width;
         let frame_count = self.frame_count;
-        let step = move |i| {
-            let x = i % w;
-            let y = i / w;
-            per_pixel(&ctx, x, y)
-        };
-        let indices = 0..(self.image_len() as u32);
-        if self.use_parallel {
-            self.image_data.resize(self.image_len(), 0);
-            (indices, &mut self.accumulation, &mut self.image_data)
+        let dirs = camera.get_ray_directions();
+        let rays = dirs
+            .iter()
+            .map(|direction| Ray {
+                direction: *direction,
+                origin: camera.position(),
+            })
+            .collect::<Vec<_>>();
+
+        let mut pool_builder = rayon::ThreadPoolBuilder::default();
+        if self.num_threads > 0 {
+            pool_builder = pool_builder.num_threads(self.num_threads);
+        }
+        self.image_data.resize(self.image_len(), 0);
+        pool_builder.build().unwrap().install(|| {
+            (&mut self.accumulation, &mut self.image_data, rays)
                 .into_par_iter()
-                .for_each(|(idx, acc, output)| {
-                    *acc += step(idx);
+                .for_each(|(acc, output, ray)| {
+                    *acc += per_pixel(&ctx, ray);
                     *output = color_rgb(*acc / frame_count);
                 });
-        } else {
-            let next_frame = indices.into_iter().map(step).collect::<Vec<_>>();
-            self.accumulation
-                .iter_mut()
-                .zip(next_frame)
-                .zip(self.image_data.iter_mut())
-                .for_each(|((acc, next), pixel)| {
-                    *acc += next;
-                    *pixel = color_rgb(*acc / frame_count)
-                });
-        }
+        });
 
         Cow::Borrowed(self.image_data.as_slice())
     }
@@ -107,11 +103,7 @@ struct RenderFrame<'a> {
 impl<'a> RenderFrame<'a> {}
 
 /// Called once per pixel. Generates rays.
-fn per_pixel(ctx @ RenderFrame { scene, camera }: &RenderFrame, x: u32, y: u32) -> Vec3 {
-    let mut ray = Ray {
-        origin: camera.position(),
-        direction: *camera.get_ray_direction(x, y),
-    };
+fn per_pixel(ctx @ RenderFrame { scene, .. }: &RenderFrame, mut ray: Ray) -> Vec3 {
     const BOUNCES: u32 = 16;
     const SKY_COLOR: Vec3 = Vec3::new(0.6, 0.7, 0.9);
     let mut multiplier = 1.0;

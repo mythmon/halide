@@ -600,6 +600,7 @@ dependencies = [
  "imgui",
  "imgui-glium-renderer",
  "imgui-winit-support",
+ "num_cpus",
 ]
 
 [[package]]
