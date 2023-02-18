@@ -1,0 +1,12 @@
+[package]
+name = "halide-offline"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.69"
+glam = { version = "0.22.0", features = ["glam-assert"] }
+"halide-raytracer" = {path = "../raytracer"}
+itertools = "0.10.5"
+pix = "0.13.2"
+png_pong = "0.8.2"
