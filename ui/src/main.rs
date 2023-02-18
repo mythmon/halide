@@ -4,7 +4,10 @@ use glium::{backend::Facade, texture::RawImage2d, uniforms::SamplerBehavior};
 use halide_raytracer::{Camera, Material, Renderer, Scene, Sphere};
 use imgui::{Condition, Key, MouseButton, TextureId, Textures};
 use imgui_glium_renderer::Texture;
-use std::rc::Rc;
+use std::{
+    collections::{HashMap, VecDeque},
+    rc::Rc,
+};
 use system::System;
 use timer::Timer;
 
@@ -31,6 +34,7 @@ struct App {
     renderer: Renderer,
     scene: Scene,
     camera: Camera,
+    frame_times: HashMap<String, VecDeque<f32>>,
 }
 
 impl Default for App {
@@ -69,6 +73,7 @@ impl Default for App {
             renderer: Renderer::new(400, 400),
             scene,
             camera,
+            frame_times: HashMap::new(),
         }
     }
 }
@@ -153,12 +158,23 @@ impl App {
                     "Viewport size: {:.0}x{:.0}",
                     self.viewport_size[0], self.viewport_size[1]
                 ));
+                const MAX_FRAME_HISTORY: usize = 256;
                 ui.text("Last render:");
                 for (name, duration) in self.timer.get_durations() {
-                    ui.text(format!(
-                        "  {name}: {:.1}ms",
-                        duration.as_secs_f32() * 1000.0
-                    ));
+                    let times = self
+                        .frame_times
+                        .entry(name.to_string())
+                        .or_insert_with(|| VecDeque::with_capacity(MAX_FRAME_HISTORY));
+                    while times.len() > MAX_FRAME_HISTORY - 1 {
+                        times.pop_front();
+                    }
+                    times.push_back(duration.as_secs_f32());
+
+                    let window_size = times.len().min(10);
+                    let avg10: f32 = times.iter().skip(times.len() - window_size).sum::<f32>() / window_size as f32;
+                    ui.text(format!("  {name}: {:0>4.1}ms", avg10 * 1000.0));
+                    ui.same_line();
+                    ui.plot_lines(name, times.make_contiguous()).build();
                 }
             });
 
