@@ -9,3 +9,6 @@ glam = { version = "0.22.0", features = ["glam-assert", "rand"] }
 parking_lot = "0.12.1"
 rand = "0.8.5"
 rayon = "1.6.1"
+
+[dev-dependencies]
+float_eq = "1.0.1"

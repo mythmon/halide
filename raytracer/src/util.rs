@@ -21,26 +21,22 @@ impl Vec3Ext for Vec3 {
     /// Returns the vector reflected across the given normal.
     fn reflect(self, normal: Self) -> Self {
         assert!(normal.is_normalized());
-        self - 2.0 * self.dot(normal) * normal
+        let rej = self.reject_from_normalized(normal);
+        self - 2.0 * rej
     }
-}
-
-pub fn xy_index<X: Into<u32>, Y: Into<u32>, W: Into<u32>>(x: X, y: Y, w: W) -> usize {
-    let x = x.into() as usize;
-    let y = y.into() as usize;
-    let w = w.into() as usize;
-    x + w * y
 }
 
 #[cfg(test)]
 mod tests {
     use crate::util::Vec3Ext;
+    use float_eq::assert_float_eq;
     use glam::Vec3;
 
     #[test]
     fn reflect() {
         let x = Vec3::X;
-        let y = x.reflect(Vec3::new(1., 1., 0.).normalize());
-        assert!((y - Vec3::Y).length() < 0.001, "{y}");
+        let normal = Vec3::new(1., 1., 0.).normalize();
+        let y = x.reflect(normal);
+        assert_float_eq!(y.to_array(), Vec3::Y.to_array(), abs <= [0.001, 0.001, 0.001]);
     }
 }

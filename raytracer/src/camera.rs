@@ -1,7 +1,7 @@
-use crate::util::xy_index;
 use glam::{Mat4, Quat, Vec2, Vec3, Vec4Swizzles};
-use parking_lot::{RwLock, RwLockReadGuard};
-use std::ops::{Deref, Range};
+use parking_lot::RwLock;
+use std::ops::Range;
+use crate::halton::{Halton, Halton2};
 
 pub struct Camera {
     position: Vec3,
@@ -12,7 +12,7 @@ pub struct Camera {
     width: u32,
     height: u32,
     look_clip: Range<f32>,
-    cached_directions: RwLock<Option<Vec<Vec3>>>,
+    jitter: RwLock<Halton2>,
 }
 
 impl Default for Camera {
@@ -26,7 +26,7 @@ impl Default for Camera {
             width: 640,
             height: 480,
             look_clip: 0.01..100.0,
-            cached_directions: RwLock::new(None),
+            jitter: RwLock::new(Halton::two_d((2, 3))),
         }
     }
 }
@@ -48,7 +48,6 @@ impl Camera {
             + offset.y * self.up_direction
             + offset.z * self.look_direction;
         self.position += MOVE_SPEED * rotated * ts;
-        self.clear_ray_cache();
         &self.position
     }
 
@@ -61,7 +60,6 @@ impl Camera {
         self.look_direction = q * self.look_direction;
         self.right_direction = q * self.right_direction;
         self.up_direction = q * self.up_direction;
-        self.clear_ray_cache();
         &self.look_direction
     }
 
@@ -73,7 +71,6 @@ impl Camera {
         if let Some(normalized) = look_direction.try_normalize() {
             if normalized != self.look_direction {
                 self.look_direction = normalized;
-                self.clear_ray_cache();
             }
         }
     }
@@ -85,7 +82,6 @@ impl Camera {
     pub fn set_vertical_fov(&mut self, vertical_fov: f32) {
         if self.vertical_fov != vertical_fov {
             self.vertical_fov = vertical_fov;
-            self.clear_ray_cache();
         }
     }
 
@@ -97,7 +93,6 @@ impl Camera {
         if self.width != width || self.height != height {
             self.width = width;
             self.height = height;
-            self.clear_ray_cache()
         }
     }
 
@@ -113,35 +108,7 @@ impl Camera {
         self.width as f32 / self.height as f32
     }
 
-    pub fn get_ray_directions(&self) -> impl Deref<Target = [Vec3]> + '_ {
-        self.map_ray_directions(|d| d.as_ref().unwrap().as_slice())
-    }
-
-    pub fn get_ray_direction(&self, x: u32, y: u32) -> impl Deref<Target = Vec3> + '_ {
-        let index = xy_index(x, y, self.width);
-        self.map_ray_directions(move |d| &d.as_ref().unwrap()[index])
-    }
-
-    fn map_ray_directions<'a, U, F>(&'a self, f: F) -> impl Deref<Target = U> + 'a
-    where
-        F: FnMut(&Option<Vec<Vec3>>) -> &U,
-        U: 'a + ?Sized,
-    {
-        let mut dirs = self.cached_directions.read();
-        if dirs.is_none() {
-            drop(dirs);
-            self.compute_ray_directions();
-            dirs = self.cached_directions.read();
-        }
-        RwLockReadGuard::map(dirs, f)
-    }
-
-    fn clear_ray_cache(&self) {
-        let mut dirs = self.cached_directions.write();
-        *dirs = None;
-    }
-
-    fn compute_ray_directions(&self) {
+    pub fn get_ray_directions(&self) -> Vec<Vec3> {
         const V_UP: Vec3 = Vec3::new(0., 1., 0.);
 
         let view = Mat4::look_to_rh(self.position, self.look_direction, V_UP);
@@ -157,12 +124,13 @@ impl Camera {
 
         let mut ray_directions = Vec::with_capacity(self.width as usize * self.height as usize);
 
+        let (jx, jy) = self.jitter.write().next().unwrap_or_default();
         let wp = self.width as f32;
         let hp = self.height as f32;
         for y in 0..self.height {
-            let yp = y as f32;
+            let yp = y as f32 + jy;
             for x in 0..self.width {
-                let xp = x as f32;
+                let xp = x as f32 + jx;
                 // screen uv coordinate with x and y in [-1,1]
                 let coord = Vec2::new(xp / wp, yp / hp) * 2. - Vec2::ONE;
 
@@ -172,7 +140,7 @@ impl Camera {
             }
         }
 
-        let mut dirs = self.cached_directions.write();
-        *dirs = Some(ray_directions);
+        ray_directions
+
     }
 }
