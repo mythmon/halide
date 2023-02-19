@@ -27,7 +27,7 @@ fn main() -> Result<()> {
     });
 
     scene.add_sphere(Sphere {
-        center: Vec3::new(3., 0.5, 0.),
+        center: Vec3::new(0., 0.5, 0.),
         radius: 0.5,
         material_index: ball_material,
     });
@@ -37,7 +37,7 @@ fn main() -> Result<()> {
     camera.set_position((0., 0.75, 4.).into());
 
     // image data is packed u32s in ABGR order, and y goes from bottom to top
-    let image_data = renderer.render(&scene, &camera);
+    let image_data = renderer.render_accumulate(&scene, &camera, 64);
     // buffer is unpacked u8s in RGB(A) order, and y goes from top to bottom
     let mut buffer = Vec::new();
     buffer.resize(image_data.len() * 4, 0);
@@ -50,7 +50,7 @@ fn main() -> Result<()> {
         for offset in 0..4 {
             buffer[idx2 + offset] = bytes[offset];
         }
-    }   
+    }
     // convert to a pix raster, and then from RGBA to RGB.
     let raster = pix::Raster::<pix::rgb::SRgba8>::with_u8_buffer(WIDTH, HEIGHT, buffer);
     let converted = pix::Raster::<pix::rgb::SRgb8>::with_raster(&raster);

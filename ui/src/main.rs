@@ -89,10 +89,6 @@ impl App {
         let mut camera_offset = Vec3::ZERO;
         let mut camera_rotate = [0.0, 0.0];
 
-        let mut camera_position_ui: Vec3 = self.camera.position();
-        let mut camera_direction_ui: Vec3 = self.camera.look_direction();
-        let mut light_direction_ui: Vec3 = self.scene.light_direction();
-
         if ui.is_mouse_down(MouseButton::Right) {
             if ui.is_key_down(Key::D) {
                 camera_offset += Vec3::X;
@@ -121,13 +117,11 @@ impl App {
 
             if camera_offset != Vec3::ZERO {
                 camera_offset = camera_offset.normalize();
-                camera_position_ui = *self.camera.relative_move(camera_offset, dt);
+                self.camera.relative_move(camera_offset, dt);
                 self.renderer.reset_accumulation();
             }
             if camera_rotate != [0.0, 0.0] {
-                self.camera
-                    .relative_turn(camera_rotate, dt)
-                    .write_to_slice(camera_direction_ui.as_mut());
+                self.camera.relative_turn(camera_rotate, dt);
                 self.renderer.reset_accumulation();
             }
         }
@@ -155,8 +149,10 @@ impl App {
             .size([200.0, 100.0], Condition::FirstUseEver)
             .build(|| {
                 ui.text(format!(
-                    "Viewport size: {:.0}x{:.0}",
-                    self.viewport_size[0], self.viewport_size[1]
+                    "Viewport size: {:.0}x{:.0} ({:.3}:1)",
+                    self.viewport_size[0],
+                    self.viewport_size[1],
+                    self.viewport_size[0] / self.viewport_size[1]
                 ));
                 const MAX_FRAME_HISTORY: usize = 256;
                 ui.text("Last render:");
@@ -171,7 +167,8 @@ impl App {
                     times.push_back(duration.as_secs_f32());
 
                     let window_size = times.len().min(10);
-                    let avg10: f32 = times.iter().skip(times.len() - window_size).sum::<f32>() / window_size as f32;
+                    let avg10: f32 = times.iter().skip(times.len() - window_size).sum::<f32>()
+                        / window_size as f32;
                     ui.text(format!("  {name}: {:0>4.1}ms", avg10 * 1000.0));
                     ui.same_line();
                     ui.plot_lines(name, times.make_contiguous()).build();
@@ -181,6 +178,7 @@ impl App {
         ui.window("Settings")
             .size([300., 300.], Condition::FirstUseEver)
             .build(|| {
+                let mut light_direction_ui: Vec3 = self.scene.light_direction();
                 if imgui::Drag::new("Light direction")
                     .range(-1., 1.)
                     .speed(0.01)
@@ -205,6 +203,7 @@ impl App {
                     self.renderer.set_num_threads(local_num_threads);
                 }
 
+                let mut camera_position_ui: Vec3 = self.camera.position();
                 if imgui::Drag::new("Camera position")
                     .range(-10., 10.)
                     .speed(0.1)
@@ -214,12 +213,23 @@ impl App {
                     self.renderer.reset_accumulation();
                 }
 
+                let mut camera_direction_ui: Vec3 = self.camera.look_direction();
                 if imgui::Drag::new("Camera direction")
                     .range(-1., 1.)
                     .speed(0.01)
                     .build_array(ui, camera_direction_ui.as_mut())
                 {
                     self.camera.set_look_direction(camera_direction_ui);
+                    self.renderer.reset_accumulation();
+                }
+
+                let mut local_fov = self.camera.vertical_fov();
+                if imgui::Drag::new("FOV")
+                    .range(1_f32, 90_f32)
+                    .speed(0.3)
+                    .build(ui, &mut local_fov)
+                {
+                    self.camera.set_vertical_fov(local_fov);
                     self.renderer.reset_accumulation();
                 }
 

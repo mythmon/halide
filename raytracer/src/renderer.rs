@@ -61,10 +61,22 @@ impl Renderer {
     }
 
     pub fn set_num_threads(&mut self, num_threads: usize) {
-        self.pool = rayon::ThreadPoolBuilder::default().num_threads(num_threads).build().unwrap();
+        self.pool = rayon::ThreadPoolBuilder::default()
+            .num_threads(num_threads)
+            .build()
+            .unwrap();
     }
 
     pub fn render<'a>(&mut self, scene: &'a Scene, camera: &'a Camera) -> Cow<[u32]> {
+        self.render_accumulate(scene, camera, 1)
+    }
+
+    pub fn render_accumulate<'a>(
+        &mut self,
+        scene: &'a Scene,
+        camera: &'a Camera,
+        frames: usize,
+    ) -> Cow<[u32]> {
         let ctx = RenderFrame { scene, camera };
 
         if !self.use_accumulation {
@@ -73,24 +85,34 @@ impl Renderer {
 
         self.image_data.resize(self.image_len(), 0);
         self.accumulation.resize(self.image_len(), Vec3::ZERO);
-        self.frame_count += 1.;
+
+        for _ in 0..frames {
+            self.frame_count += 1.;
+
+            let dirs = camera.get_ray_directions();
+            let rays = dirs
+                .iter()
+                .map(|direction| Ray {
+                    direction: *direction,
+                    origin: camera.position(),
+                })
+                .collect::<Vec<_>>();
+
+            self.image_data.resize(self.image_len(), 0);
+            self.pool.install(|| {
+                (&mut self.accumulation, rays)
+                    .into_par_iter()
+                    .for_each(|(acc, ray)| {
+                        *acc += per_pixel(&ctx, ray);
+                    });
+            });
+        }
 
         let frame_count = self.frame_count;
-        let dirs = camera.get_ray_directions();
-        let rays = dirs
-            .iter()
-            .map(|direction| Ray {
-                direction: *direction,
-                origin: camera.position(),
-            })
-            .collect::<Vec<_>>();
-
-        self.image_data.resize(self.image_len(), 0);
         self.pool.install(|| {
-            (&mut self.accumulation, &mut self.image_data, rays)
+            (&mut self.accumulation, &mut self.image_data)
                 .into_par_iter()
-                .for_each(|(acc, output, ray)| {
-                    *acc += per_pixel(&ctx, ray);
+                .for_each(|(acc, output)| {
                     *output = color_rgb(*acc / frame_count);
                 });
         });

@@ -1,6 +1,6 @@
 use std::{rc::Rc, time::Instant};
 
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use glium::{
     self,
     backend::Facade,
@@ -31,8 +31,8 @@ impl System {
         let window_builder = WindowBuilder::new()
             .with_title(title)
             .with_inner_size(glutin::dpi::LogicalSize::new(1024, 768));
-        let display = Display::new(window_builder, context, &event_loop)
-            .context("Creating display")?;
+        let display =
+            Display::new(window_builder, context, &event_loop).context("Creating display")?;
 
         let mut imgui = imgui::Context::create();
 

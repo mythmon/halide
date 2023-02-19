@@ -22,7 +22,7 @@ impl Default for Camera {
             look_direction: Vec3::NEG_Z,
             right_direction: Vec3::X,
             up_direction: Vec3::Y,
-            vertical_fov: 20.,
+            vertical_fov: 25.,
             width: 640,
             height: 480,
             look_clip: 0.01..100.0,
@@ -148,7 +148,7 @@ impl Camera {
         let view_inverse = view.inverse();
 
         let projection = Mat4::perspective_rh(
-            self.vertical_fov,
+            self.vertical_fov.to_radians(),
             self.aspect_ratio(),
             self.look_clip.start,
             self.look_clip.end,
