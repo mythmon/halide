@@ -6,12 +6,14 @@ pub enum Hittable {
 }
 
 impl Hittable {
+    #[inline]
     pub fn check_hit(&self, ray: &Ray, look_clip: &Range<f32>) -> HitPayload {
         match self {
             Hittable::Sphere(sphere) => Self::check_hit_sphere(sphere, ray, look_clip)
         }
     }
 
+    #[inline]
     fn check_hit_sphere(sphere: &Sphere, ray: &Ray, look_clip: &Range<f32>) -> HitPayload {
         let offset_center = ray.origin - sphere.center;
 
