@@ -1,12 +1,13 @@
 use crate::{
     geom::Ray,
+    hittable::Hittable,
     util::{color_rgb, Vec3Ext},
     Camera, Scene,
 };
 use glam::Vec3;
 use rand::Rng;
 use rayon::{prelude::*, ThreadPool};
-use std::borrow::Cow;
+use std::{borrow::Cow, cmp::Ordering};
 
 pub struct Renderer {
     image_data: Vec<u32>,
@@ -126,14 +127,43 @@ struct RenderFrame<'a> {
     camera: &'a Camera,
 }
 
-enum HitPayload {
+#[derive(PartialEq)]
+pub enum HitPayload {
     Hit {
-        // hit_distance: f32,
+        /// The proportion along the ray, not a world distance.
+        hit_distance: f32,
         world_normal: Vec3,
         world_position: Vec3,
-        object_index: usize,
+        // object_index: usize,
+        material_index: usize,
     },
     Miss,
+}
+
+impl PartialOrd for HitPayload {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (
+                HitPayload::Hit {
+                    hit_distance: d_self,
+                    ..
+                },
+                HitPayload::Hit {
+                    hit_distance: d_other,
+                    ..
+                },
+            ) => d_self.partial_cmp(d_other),
+            (HitPayload::Hit { .. }, HitPayload::Miss) => Some(Ordering::Less),
+            (HitPayload::Miss, HitPayload::Hit { .. }) => Some(Ordering::Greater),
+            (HitPayload::Miss, HitPayload::Miss) => {
+                if self == other {
+                    Some(Ordering::Equal)
+                } else {
+                    None
+                }
+            }
+        }
+    }
 }
 
 impl<'a> RenderFrame<'a> {
@@ -149,79 +179,66 @@ impl<'a> RenderFrame<'a> {
             Vec3::new(0.0, 0.0, 0.0)
         } else {
             match self.trace_ray(&ray) {
-                HitPayload::Hit { world_normal, world_position, object_index } => {
-                    let sphere = self.scene.sphere(object_index);
-                    let material = self.scene.material(sphere.material_index);
+                HitPayload::Hit {
+                    world_normal,
+                    world_position,
+                    material_index,
+                    ..
+                } => {
+                    let material = self.scene.material(material_index);
 
                     let mut rng = rand::thread_rng();
                     let normal_offset: Vec3 = material.roughness * rng.gen::<Vec3>();
-                    let reflection_normal = (world_normal + normal_offset).try_normalize().unwrap_or(world_normal);
+                    let reflection_normal = (world_normal + normal_offset)
+                        .try_normalize()
+                        .unwrap_or(world_normal);
                     ray.direction = (-ray.direction).reflect(reflection_normal);
                     ray.origin = world_position + ray.direction * 0.0001;
 
                     self.ray_color(ray, bounce_budget - 1) * material.albedo
                 }
-                HitPayload::Miss => SKY_COLOR
+                HitPayload::Miss => SKY_COLOR,
             }
         }
     }
 
     /// Shoot a ray from a given location and return information about any potential hits.
     fn trace_ray(&self, ray: &Ray) -> HitPayload {
-        let mut closest = None;
-
-        for (index, sphere) in self.scene.spheres().iter().enumerate() {
-            let offset_center = ray.origin - sphere.center;
-
-            // solve the equation of the ray set equal to the equation of a sphere centered on the origin.
-            // a, b, and c are the quadratic equation co-effiecients
-            let a = ray.direction.length_squared();
-            let b = 2. * ray.direction.dot(offset_center);
-            let c = offset_center.length_squared() - sphere.radius.powi(2);
-
-            let discrim = b.powi(2) - 4. * a * c;
-
-            if discrim < 0. {
-                continue;
-            } else {
-                // finish the quadratic equation, though we only need the least result
-                let t0 = (-b - discrim.sqrt()) / (2. * a);
-                if self.camera.look_clip().contains(&t0) {
-                    match closest {
-                        Some((_, min_t)) if t0 < min_t => {
-                            closest = Some((index, t0));
-                        }
-                        None => {
-                            closest = Some((index, t0));
-                        }
-                        _ => (),
-                    }
-                }
-            }
-        }
-
-        if let Some((object_index, t)) = closest {
-            self.on_hit(ray, object_index, t)
-        } else {
-            self.on_miss(ray)
-        }
+        let look_clip = self.camera.look_clip();
+        self.scene
+            .spheres()
+            .iter()
+            .map(|sphere| sphere.check_hit(ray, look_clip))
+            .fold(
+                HitPayload::Miss,
+                |acc, next| if next < acc { next } else { acc },
+            )
     }
+}
 
-    /// invoked when something is hit
-    fn on_hit(&self, ray: &Ray, object_index: usize, hit_distance: f32) -> HitPayload {
-        let sphere = &self.scene.spheres()[object_index];
-        let hit_pos = ray.origin + ray.direction * hit_distance;
-        let world_normal = (hit_pos - sphere.center).normalize();
-        HitPayload::Hit {
-            // hit_distance,
-            world_normal,
-            world_position: hit_pos,
-            object_index,
-        }
-    }
+#[cfg(test)]
+mod tests {
+    use super::HitPayload;
+    use glam::Vec3;
 
-    /// invoked when a ray misses all objects
-    fn on_miss(&self, _ray: &Ray) -> HitPayload {
-        HitPayload::Miss
+    #[test]
+    fn order_of_hits() {
+        let x = HitPayload::Hit {
+            hit_distance: 1.0,
+            world_normal: Vec3::X,
+            world_position: Vec3::ZERO,
+            material_index: 0,
+        };
+        let y = HitPayload::Hit {
+            hit_distance: 2.0,
+            world_normal: Vec3::X,
+            world_position: Vec3::ZERO,
+            material_index: 0,
+        };
+        let z = HitPayload::Miss;
+
+        assert!(x < y);
+        assert!(x < z);
+        assert!(y < z);
     }
 }

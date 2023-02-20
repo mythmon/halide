@@ -4,6 +4,7 @@ mod renderer;
 mod scene;
 mod util;
 mod halton;
+mod hittable;
 
 pub use camera::Camera;
 pub use renderer::Renderer;
