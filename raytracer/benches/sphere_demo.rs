@@ -19,23 +19,23 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         ..Default::default()
     });
 
-    scene.add_sphere(Sphere {
+    scene.add_hittable(Sphere {
         center: Vec3::new(0., -10_000., 0.),
         radius: 10_000.,
         material_index: ground_material,
     });
 
-    scene.add_sphere(Sphere {
+    scene.add_hittable(Sphere {
         center: Vec3::new(-1.1, 0.5, 0.),
         radius: 0.5,
         material_index: ball_material,
     });
-    scene.add_sphere(Sphere {
+    scene.add_hittable(Sphere {
         center: Vec3::new(0., 0.5, 0.),
         radius: 0.5,
         material_index: ball_material,
     });
-    scene.add_sphere(Sphere {
+    scene.add_hittable(Sphere {
         center: Vec3::new(1.1, 0.5, 0.),
         radius: 0.5,
         material_index: ball_material,

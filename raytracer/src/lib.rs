@@ -9,3 +9,4 @@ mod hittable;
 pub use camera::Camera;
 pub use renderer::Renderer;
 pub use scene::{Material, Scene, Sphere};
+pub use hittable::Hittable;

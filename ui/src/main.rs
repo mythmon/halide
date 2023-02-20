@@ -50,13 +50,13 @@ impl Default for App {
             ..Default::default()
         });
 
-        scene.add_sphere(Sphere {
+        scene.add_hittable(Sphere {
             center: Vec3::new(0., -10_000., 0.),
             radius: 10_000.,
             material_index: ground_material,
         });
 
-        scene.add_sphere(Sphere {
+        scene.add_hittable(Sphere {
             center: Vec3::new(0., 0.5, 0.),
             radius: 0.5,
             material_index: ball_material,
@@ -225,31 +225,35 @@ impl App {
 
                 ui.separator();
 
-                let sphere_count = self.scene.spheres().len();
+                let hittable_count = self.scene.hittables().len();
                 let material_count = self.scene.materials().len();
-                for (idx, sphere) in self.scene.spheres_mut().iter_mut().enumerate() {
+                for (idx, hittable) in self.scene.hittables_mut().iter_mut().enumerate() {
                     let _id = ui.push_id_usize(idx);
-                    ui.text(format!("Sphere {idx}"));
-                    if imgui::Drag::new("Position")
-                        .range((-10.0..10.0).start, (-10.0..10.0).end)
-                        .speed(0.1)
-                        .build_array(ui, sphere.center.as_mut())
-                    {
-                        self.renderer.reset_accumulation();
-                    }
-                    if imgui::Drag::new("Radius")
-                        .range(0.1, 3.0)
-                        .speed(0.03)
-                        .build(ui, &mut sphere.radius)
-                    {
-                        self.renderer.reset_accumulation();
-                    }
-                    if imgui::Drag::new("Material")
-                        .range(0, material_count - 1)
-                        .speed(0.1)
-                        .build(ui, &mut sphere.material_index)
-                    {
-                        self.renderer.reset_accumulation();
+                    match hittable {
+                        halide_raytracer::Hittable::Sphere(sphere) => {
+                            ui.text(format!("Obj #{idx} - sphere"));
+                            if imgui::Drag::new("Position")
+                                .range((-10.0..10.0).start, (-10.0..10.0).end)
+                                .speed(0.1)
+                                .build_array(ui, sphere.center.as_mut())
+                            {
+                                self.renderer.reset_accumulation();
+                            }
+                            if imgui::Drag::new("Radius")
+                                .range(0.1, 3.0)
+                                .speed(0.03)
+                                .build(ui, &mut sphere.radius)
+                            {
+                                self.renderer.reset_accumulation();
+                            }
+                            if imgui::Drag::new("Material")
+                                .range(0, material_count - 1)
+                                .speed(0.1)
+                                .build(ui, &mut sphere.material_index)
+                            {
+                                self.renderer.reset_accumulation();
+                            }
+                        }
                     }
                 }
 
@@ -275,7 +279,7 @@ impl App {
                     {
                         self.renderer.reset_accumulation();
                     }
-                    if idx < sphere_count - 1 {
+                    if idx < hittable_count - 1 {
                         ui.separator();
                     }
                 }

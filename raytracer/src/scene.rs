@@ -1,27 +1,28 @@
 use glam::Vec3;
+use crate::hittable::Hittable;
 
 #[derive(Default)]
 pub struct Scene {
-    spheres: Vec<Sphere>,
+    hittables: Vec<Hittable>,
     materials: Vec<Material>,
 }
 
 impl Scene {
-    pub fn spheres(&self) -> &[Sphere] {
-        self.spheres.as_slice()
+    pub fn hittables(&self) -> &[Hittable] {
+        self.hittables.as_slice()
     }
 
-    pub fn spheres_mut(&mut self) -> &mut [Sphere] {
-        &mut self.spheres
+    pub fn hittables_mut(&mut self) -> &mut [Hittable] {
+        &mut self.hittables
     }
 
-    pub fn sphere(&self, idx: usize) -> &Sphere {
-        &self.spheres[idx]
+    pub fn hittable(&self, idx: usize) -> &Hittable {
+        &self.hittables[idx]
     }
 
-    pub fn add_sphere(&mut self, sphere: Sphere) -> usize {
-        self.spheres.push(sphere);
-        self.spheres.len() - 1
+    pub fn add_hittable<H: Into<Hittable>>(&mut self, hittable: H) -> usize {
+        self.hittables.push(hittable.into());
+        self.hittables.len() - 1
     }
 
     pub fn materials(&self) -> &[Material] {

@@ -1,6 +1,5 @@
 use crate::{
     geom::Ray,
-    hittable::Hittable,
     util::{color_rgb, Vec3Ext},
     Camera, Scene,
 };
@@ -206,9 +205,9 @@ impl<'a> RenderFrame<'a> {
     fn trace_ray(&self, ray: &Ray) -> HitPayload {
         let look_clip = self.camera.look_clip();
         self.scene
-            .spheres()
+            .hittables()
             .iter()
-            .map(|sphere| sphere.check_hit(ray, look_clip))
+            .map(|hittable| hittable.check_hit(ray, look_clip))
             .fold(
                 HitPayload::Miss,
                 |acc, next| if next < acc { next } else { acc },
