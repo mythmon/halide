@@ -11,4 +11,9 @@ rand = "0.8.5"
 rayon = "1.6.1"
 
 [dev-dependencies]
+criterion = "0.4.0"
 float_eq = "1.0.1"
+
+[[bench]]
+name = "sphere_demo"
+harness = false
