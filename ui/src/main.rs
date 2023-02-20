@@ -178,16 +178,6 @@ impl App {
         ui.window("Settings")
             .size([300., 300.], Condition::FirstUseEver)
             .build(|| {
-                let mut light_direction_ui: Vec3 = self.scene.light_direction();
-                if imgui::Drag::new("Light direction")
-                    .range(-1., 1.)
-                    .speed(0.01)
-                    .build_array(ui, light_direction_ui.as_mut())
-                {
-                    self.scene.set_light_direction(light_direction_ui);
-                    self.renderer.reset_accumulation();
-                }
-
                 ui.checkbox("Accumulation", &mut self.renderer.use_accumulation);
                 ui.same_line();
                 if ui.button("Reset") {

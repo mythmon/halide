@@ -137,41 +137,33 @@ enum HitPayload {
 }
 
 impl<'a> RenderFrame<'a> {
-    /// Called once per pixel. Generates rays.
-    fn per_pixel(&self, mut ray: Ray) -> Vec3 {
-        const BOUNCES: u32 = 16;
+    /// Called once per pixel to figure out its color.
+    fn per_pixel(&self, ray: Ray) -> Vec3 {
+        self.ray_color(ray, 16)
+    }
+
+    fn ray_color(&self, mut ray: Ray, bounce_budget: u32) -> Vec3 {
         const SKY_COLOR: Vec3 = Vec3::new(0.6, 0.7, 0.9);
-        let mut multiplier = 1.0;
 
-        let mut final_color = Vec3::ZERO;
-        let mut rng = rand::thread_rng();
-        for _ in 0..BOUNCES {
+        if bounce_budget == 0 {
+            Vec3::new(0.0, 0.0, 0.0)
+        } else {
             match self.trace_ray(&ray) {
-                HitPayload::Hit {
-                    object_index,
-                    world_normal,
-                    world_position,
-                } => {
-                    let sphere = &self.scene.sphere(object_index);
-                    let material = &self.scene.material(sphere.material_index);
-                    let light_intensity = world_normal.dot(-self.scene.light_direction()).max(0.0);
-                    let color = material.albedo * light_intensity;
-                    final_color += color * multiplier;
-                    multiplier *= 0.7;
+                HitPayload::Hit { world_normal, world_position, object_index } => {
+                    let sphere = self.scene.sphere(object_index);
+                    let material = self.scene.material(sphere.material_index);
 
-                    ray.origin = world_position + world_normal * 0.0001;
-                    let normal_offset: Vec3 = 0.5 * material.roughness * rng.gen::<Vec3>();
-                    let reflection_normal = (world_normal + normal_offset).normalize();
-                    ray.direction = ray.direction.reflect(reflection_normal);
+                    let mut rng = rand::thread_rng();
+                    let normal_offset: Vec3 = material.roughness * rng.gen::<Vec3>();
+                    let reflection_normal = (world_normal + normal_offset).try_normalize().unwrap_or(world_normal);
+                    ray.direction = (-ray.direction).reflect(reflection_normal);
+                    ray.origin = world_position + ray.direction * 0.0001;
+
+                    self.ray_color(ray, bounce_budget - 1) * material.albedo
                 }
-                HitPayload::Miss => {
-                    final_color += SKY_COLOR * multiplier;
-                    break;
-                }
-            };
+                HitPayload::Miss => SKY_COLOR
+            }
         }
-
-        final_color
     }
 
     /// Shoot a ray from a given location and return information about any potential hits.

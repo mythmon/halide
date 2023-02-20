@@ -128,9 +128,9 @@ impl Camera {
         let wp = self.width as f32;
         let hp = self.height as f32;
         for y in 0..self.height {
-            let yp = y as f32 + jy;
+            let yp = y as f32 + jy - 0.5;
             for x in 0..self.width {
-                let xp = x as f32 + jx;
+                let xp = x as f32 + jx - 0.5;
                 // screen uv coordinate with x and y in [-1,1]
                 let coord = Vec2::new(xp / wp, yp / hp) * 2. - Vec2::ONE;
 

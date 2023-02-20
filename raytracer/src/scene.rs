@@ -1,32 +1,12 @@
 use glam::Vec3;
 
+#[derive(Default)]
 pub struct Scene {
     spheres: Vec<Sphere>,
     materials: Vec<Material>,
-    light_direction: Vec3,
-}
-
-impl Default for Scene {
-    fn default() -> Self {
-        Self {
-            spheres: Vec::new(),
-            materials: Vec::new(),
-            light_direction: Vec3::NEG_ONE.normalize(),
-        }
-    }
 }
 
 impl Scene {
-    pub fn light_direction(&self) -> Vec3 {
-        self.light_direction
-    }
-
-    pub fn set_light_direction(&mut self, light_direction: Vec3) {
-        if let Some(normalized) = light_direction.try_normalize() {
-            self.light_direction = normalized;
-        }
-    }
-
     pub fn spheres(&self) -> &[Sphere] {
         self.spheres.as_slice()
     }
