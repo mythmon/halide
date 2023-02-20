@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::hittable::Hittable;
+use crate::{hittable::Hittable, material::Material};
 
 #[derive(Default)]
 pub struct Scene {
@@ -55,22 +55,6 @@ impl Default for Sphere {
             center: Vec3::ZERO,
             radius: 1.0,
             material_index: 0,
-        }
-    }
-}
-
-pub struct Material {
-    pub albedo: Vec3,
-    pub roughness: f32,
-    pub metallic: f32,
-}
-
-impl Default for Material {
-    fn default() -> Self {
-        Self {
-            albedo: Vec3::ONE,
-            roughness: 0.5,
-            metallic: 0.0,
         }
     }
 }

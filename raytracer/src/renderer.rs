@@ -1,12 +1,7 @@
-use crate::{
-    geom::Ray,
-    util::{color_rgb, Vec3Ext},
-    Camera, Scene,
-};
+use crate::{geom::Ray, hittable::HitPayload, util::color_rgb, Camera, Scene};
 use glam::Vec3;
-use rand::Rng;
 use rayon::{prelude::*, ThreadPool};
-use std::{borrow::Cow, cmp::Ordering};
+use std::borrow::Cow;
 
 pub struct Renderer {
     image_data: Vec<u32>,
@@ -126,118 +121,70 @@ struct RenderFrame<'a> {
     camera: &'a Camera,
 }
 
-#[derive(PartialEq)]
-pub enum HitPayload {
-    Hit {
-        /// The proportion along the ray, not a world distance.
-        hit_distance: f32,
-        world_normal: Vec3,
-        world_position: Vec3,
-        // object_index: usize,
-        material_index: usize,
-    },
-    Miss,
-}
-
-impl PartialOrd for HitPayload {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match (self, other) {
-            (
-                HitPayload::Hit {
-                    hit_distance: d_self,
-                    ..
-                },
-                HitPayload::Hit {
-                    hit_distance: d_other,
-                    ..
-                },
-            ) => d_self.partial_cmp(d_other),
-            (HitPayload::Hit { .. }, HitPayload::Miss) => Some(Ordering::Less),
-            (HitPayload::Miss, HitPayload::Hit { .. }) => Some(Ordering::Greater),
-            (HitPayload::Miss, HitPayload::Miss) => {
-                if self == other {
-                    Some(Ordering::Equal)
-                } else {
-                    None
-                }
-            }
-        }
-    }
-}
-
 impl<'a> RenderFrame<'a> {
     /// Called once per pixel to figure out its color.
     fn per_pixel(&self, ray: Ray) -> Vec3 {
         self.ray_color(ray, 16)
     }
 
-    fn ray_color(&self, mut ray: Ray, bounce_budget: u32) -> Vec3 {
+    fn ray_color(&self, ray: Ray, bounce_budget: u32) -> Vec3 {
         const SKY_COLOR: Vec3 = Vec3::new(0.6, 0.7, 0.9);
 
         if bounce_budget == 0 {
             Vec3::new(0.0, 0.0, 0.0)
         } else {
             match self.trace_ray(&ray) {
-                HitPayload::Hit {
-                    world_normal,
-                    world_position,
-                    material_index,
-                    ..
-                } => {
-                    let material = self.scene.material(material_index);
-
-                    let mut rng = rand::thread_rng();
-                    let normal_offset: Vec3 = material.roughness * rng.gen::<Vec3>();
-                    let reflection_normal = (world_normal + normal_offset)
-                        .try_normalize()
-                        .unwrap_or(world_normal);
-                    ray.direction = (-ray.direction).reflect(reflection_normal);
-                    ray.origin = world_position + ray.direction * 0.0001;
-
-                    self.ray_color(ray, bounce_budget - 1) * material.albedo
+                ref hit @ HitPayload::Hit { ref material_index, .. } => {
+                    let material = self.scene.material(*material_index);
+                    if let Some(scatter) = material.scatter(hit, &ray) {
+                        // let attenuation = material.scatter(&hit, &mut ray);
+                        self.ray_color(scatter.ray, bounce_budget - 1) * scatter.attenuation
+                    } else {
+                        Vec3::ZERO
+                    }
                 }
                 HitPayload::Miss => SKY_COLOR,
+                HitPayload::Inside => Vec3::ZERO,
             }
         }
     }
 
-    /// Shoot a ray from a given location and return information about any potential hits.
+    /// Shoot a ray from a given location and return information the closest hit, if any.
     fn trace_ray(&self, ray: &Ray) -> HitPayload {
         let look_clip = self.camera.look_clip();
         self.scene
             .hittables()
             .iter()
             .map(|hittable| hittable.check_hit(ray, look_clip))
-            .fold(
-                HitPayload::Miss,
-                |acc, next| if next < acc { next } else { acc },
-            )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::HitPayload;
-    use glam::Vec3;
-
-    #[test]
-    fn order_of_hits() {
-        let x = HitPayload::Hit {
-            hit_distance: 1.0,
-            world_normal: Vec3::X,
-            world_position: Vec3::ZERO,
-            material_index: 0,
-        };
-        let y = HitPayload::Hit {
-            hit_distance: 2.0,
-            world_normal: Vec3::X,
-            world_position: Vec3::ZERO,
-            material_index: 0,
-        };
-        let z = HitPayload::Miss;
-
-        assert!(x < y);
-        assert!(x < z);
-        assert!(y < z);
+            .fold(HitPayload::Miss, |acc, next| {
+                match (acc, next) {
+                    (acc @ HitPayload::Hit { .. }, next @ HitPayload::Hit { .. }) => {
+                        match (&acc, &next) {
+                            (
+                                HitPayload::Hit {
+                                    hit_distance: d_acc,
+                                    ..
+                                },
+                                HitPayload::Hit {
+                                    hit_distance: d_next,
+                                    ..
+                                },
+                            ) if d_next < d_acc => next,
+                            _ => acc,
+                        }
+                    }
+                    (hit @ HitPayload::Hit { .. }, HitPayload::Miss)
+                    | (HitPayload::Hit { .. }, hit @ HitPayload::Inside)
+                    | (HitPayload::Miss, hit @ HitPayload::Hit { .. })
+                    | (hit @ HitPayload::Miss, HitPayload::Miss)
+                    | (HitPayload::Miss, hit @ HitPayload::Inside)
+                    | (hit @ HitPayload::Inside, HitPayload::Hit { .. })
+                    | (hit @ HitPayload::Inside, HitPayload::Miss)
+                    | (hit @ HitPayload::Inside, HitPayload::Inside) => hit,
+                    // (Some(acc), Some(next)) => Some(if next.hit_distance < acc.hit_distance { next } else { acc }),
+                    // (hit @ Some(_), None) | (None, hit @ Some(_)) => hit,
+                    // (None, None) => None
+                }
+            })
     }
 }

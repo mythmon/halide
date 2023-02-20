@@ -41,13 +41,11 @@ impl Default for App {
     fn default() -> Self {
         let mut scene = Scene::default();
 
-        let ground_material = scene.add_material(Material {
+        let ground_material = scene.add_material(Material::Lambertian {
             albedo: Vec3::new(0.7, 0.7, 0.7),
-            ..Default::default()
         });
-        let ball_material = scene.add_material(Material {
+        let ball_material = scene.add_material(Material::Lambertian {
             albedo: Vec3::new(0.9, 0.2, 0.1),
-            ..Default::default()
         });
 
         scene.add_hittable(Sphere {
@@ -231,7 +229,7 @@ impl App {
                     let _id = ui.push_id_usize(idx);
                     match hittable {
                         halide_raytracer::Hittable::Sphere(sphere) => {
-                            ui.text(format!("Obj #{idx} - sphere"));
+                            ui.text(format!("Obj #{idx}: sphere"));
                             if imgui::Drag::new("Position")
                                 .range((-10.0..10.0).start, (-10.0..10.0).end)
                                 .speed(0.1)
@@ -261,26 +259,16 @@ impl App {
 
                 for (idx, material) in self.scene.materials_mut().iter_mut().enumerate() {
                     let _id = ui.push_id_usize(idx);
-                    ui.text(format!("Material {idx}"));
-                    if ui.color_edit3("Albedo", material.albedo.as_mut()) {
-                        self.renderer.reset_accumulation();
-                    }
-                    if imgui::Drag::new("Roughness")
-                        .range(0.0, 1.0)
-                        .speed(0.01)
-                        .build(ui, &mut material.roughness)
-                    {
-                        self.renderer.reset_accumulation();
-                    }
-                    if imgui::Drag::new("Metallic")
-                        .range(0.0, 1.0)
-                        .speed(0.01)
-                        .build(ui, &mut material.metallic)
-                    {
-                        self.renderer.reset_accumulation();
-                    }
-                    if idx < hittable_count - 1 {
-                        ui.separator();
+                    match material {
+                        Material::Lambertian { albedo } => {
+                            ui.text(format!("Mat #{idx}: Lambertian"));
+                            if ui.color_edit3("Albedo", albedo.as_mut()) {
+                                self.renderer.reset_accumulation();
+                            }
+                            if idx < hittable_count - 1 {
+                                ui.separator();
+                            }
+                        }
                     }
                 }
             });

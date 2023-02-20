@@ -1,7 +1,7 @@
-use std::time::Duration;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use glam::Vec3;
 use halide_raytracer::{Camera, Material, Renderer, Scene, Sphere};
+use std::time::Duration;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     const WIDTH: u32 = 640;
@@ -10,13 +10,11 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     renderer.set_num_threads(1);
 
     let mut scene = Scene::default();
-    let ground_material = scene.add_material(Material {
+    let ground_material = scene.add_material(Material::Lambertian {
         albedo: Vec3::new(0.9, 0.2, 0.1),
-        ..Default::default()
     });
-    let ball_material = scene.add_material(Material {
+    let ball_material = scene.add_material(Material::Lambertian {
         albedo: Vec3::new(0.7, 0.7, 0.7),
-        ..Default::default()
     });
 
     scene.add_hittable(Sphere {
@@ -44,7 +42,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut camera = Camera::default();
     camera.set_size(WIDTH, HEIGHT);
     camera.set_position((0., 0.75, 4.).into());
-
 
     c.bench_function("sphere demo", move |b| {
         b.iter(|| {

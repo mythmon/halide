@@ -15,13 +15,11 @@ fn main() -> Result<()> {
 
     let mut scene = Scene::default();
 
-    let ground_material = scene.add_material(Material {
+    let ground_material = scene.add_material(Material::Lambertian {
         albedo: Vec3::new(0.9, 0.2, 0.1),
-        ..Default::default()
     });
-    let ball_material = scene.add_material(Material {
+    let ball_material = scene.add_material(Material::Lambertian {
         albedo: Vec3::new(0.7, 0.7, 0.7),
-        ..Default::default()
     });
 
     scene.add_hittable(Sphere {
