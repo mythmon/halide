@@ -1,10 +1,18 @@
-use glam::Vec3;
 use crate::{hittable::Hittable, material::Material};
+use glam::Vec3;
 
-#[derive(Default)]
 pub struct Scene {
     hittables: Vec<Hittable>,
     materials: Vec<Material>,
+}
+
+impl Default for Scene {
+    fn default() -> Self {
+        Self {
+            hittables: Default::default(),
+            materials: vec![Material::Null],
+        }
+    }
 }
 
 impl Scene {

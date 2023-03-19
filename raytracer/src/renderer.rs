@@ -137,7 +137,6 @@ impl<'a> RenderFrame<'a> {
                 ref hit @ HitPayload::Hit { ref material_index, .. } => {
                     let material = self.scene.material(*material_index);
                     if let Some(scatter) = material.scatter(hit, &ray) {
-                        // let attenuation = material.scatter(&hit, &mut ray);
                         self.ray_color(scatter.ray, bounce_budget - 1) * scatter.attenuation
                     } else {
                         Vec3::ZERO
@@ -181,9 +180,6 @@ impl<'a> RenderFrame<'a> {
                     | (hit @ HitPayload::Inside, HitPayload::Hit { .. })
                     | (hit @ HitPayload::Inside, HitPayload::Miss)
                     | (hit @ HitPayload::Inside, HitPayload::Inside) => hit,
-                    // (Some(acc), Some(next)) => Some(if next.hit_distance < acc.hit_distance { next } else { acc }),
-                    // (hit @ Some(_), None) | (None, hit @ Some(_)) => hit,
-                    // (None, None) => None
                 }
             })
     }

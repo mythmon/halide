@@ -260,6 +260,7 @@ impl App {
                 for (idx, material) in self.scene.materials_mut().iter_mut().enumerate() {
                     let _id = ui.push_id_usize(idx);
                     match material {
+                        Material::Null => (),
                         Material::Lambertian { albedo } => {
                             ui.text(format!("Mat #{idx}: Lambertian"));
                             if ui.color_edit3("Albedo", albedo.as_mut()) {
